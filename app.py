@@ -15,6 +15,27 @@ except ImportError:
     st.error("Could not import database_maker module. Please ensure database_maker.py is in the same directory.")
     st.stop()
 
+def download_model_file():
+    """Download the model file if it doesn't exist"""
+    model_path = "ai/model.pkl"
+    if not os.path.exists(model_path):
+        st.info("Downloading model.pkl...")
+        os.makedirs("ai", exist_ok=True)
+
+        # Model file URL
+        model_url = "https://drive.google.com/uc?export=download&id=1p-5ljhiZFz89MRzu9yvlSnfSnoJUy-SI"
+
+        try:
+            response = requests.get(model_url)
+            with open(model_path, 'wb') as f:
+                f.write(response.content)
+            st.success("Model file downloaded successfully")
+            return True
+        except Exception as e:
+            st.error(f"Error downloading model: {e}")
+            return False
+    return True
+
 # Load club data for province/club selection
 try:
     df_clubs = pd.read_csv("club_data.csv", encoding='utf-8', header=1)
@@ -50,6 +71,10 @@ def get_members_for_club_season(club, season):
 # Load the pre-trained model and encoders
 @st.cache_resource
 def load_model_and_encoders():
+    # Download model file first
+    if not download_model_file():
+        return None, None, None, None, None, None
+
     try:
         # Load all files using joblib (consistent with how they were saved)
         category_encoder = joblib.load('ai/category_encoder.pkl')
