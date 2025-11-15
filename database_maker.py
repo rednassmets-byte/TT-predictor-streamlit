@@ -7,25 +7,15 @@ from pyvttl.vttl_api import VttlApi
 # Instantiate the API client with credentials
 api: Optional[VttlApi] = VttlApi(username='sandersmets', password='Imdc1234')
 
-# Lees de PDF en extraheer alle tabellen met pdfplumber
-all_tables = []
-with pdfplumber.open("Club-API.pdf") as pdf:
-    for page in pdf.pages:
-        tables = page.extract_tables()
-        for table in tables:
-            df = pd.DataFrame(table)
-            all_tables.append(df)
-
-# Combineer alle tabellen in één DataFrame
-df = pd.concat(all_tables, ignore_index=True)
-
-# Sla de DataFrame op als CSV
-df.to_csv("club_data.csv", index=False, encoding='utf-8')
-
-# Lees de CSV terug en maak een mapping van clubnr naar provincie en naam
-df_read = pd.read_csv("club_data.csv", encoding='utf-8', header=1)
-club_to_province = {row['Clubnr.']: row['Provincie'] for _, row in df_read.iterrows()}
-club_to_name = {row['Clubnr.']: row['Club'] for _, row in df_read.iterrows()}
+# Load club data from CSV if available, otherwise create empty mappings
+try:
+    df_read = pd.read_csv("club_data.csv", encoding='utf-8', header=1)
+    club_to_province = {row['Clubnr.']: row['Provincie'] for _, row in df_read.iterrows()}
+    club_to_name = {row['Clubnr.']: row['Club'] for _, row in df_read.iterrows()}
+except FileNotFoundError:
+    # Fallback mappings if CSV not found
+    club_to_province = {}
+    club_to_name = {}
 
 def get_province_for_club(club_code):
     """Return the province for a given club code, e.g., 'A182' -> 'Antwerpen'."""
