@@ -1,0 +1,3 @@
+- [x] Update imports in TT predictor/app.py to include huggingface_hub
+- [x] Modify load_model_and_encoders function to use hf_hub_download for remote model files
+- [x] Test the app to ensure models load correctly from Hugging Face
