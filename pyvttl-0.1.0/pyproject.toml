@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyvttl"
+version = "0.1.0"
+description = "Python wrapper for the VTTL SOAP API (read-only)"
+authors = [
+    { name = "Tim Jacobs", email = "jacobs.tim@gmail.com" }
+]
+license = { file = "LICENSE" }
+requires-python = ">=3.7"
+dependencies = [
+    "zeep"
+]
