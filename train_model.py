@@ -7,7 +7,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split, cross_val_score
 from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import RandomUnderSampler
-from sklearn.metrics import classification_report, accuracy_score
+from sklearn.metrics import classification_report, accuracy_score, cohen_kappa_score, matthews_corrcoef
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -100,6 +100,51 @@ def create_advanced_features(df, ranking_order):
 
 df = create_advanced_features(df, ranking_order)
 
+# -------------------------
+# Filter players with at least 15 matches
+# -------------------------
+min_matches = 15
+print(f"\nFiltering players with at least {min_matches} matches...")
+print(f"Before filtering: {len(df)} players")
+df = df[df['total_matches'] >= min_matches]
+print(f"After filtering: {len(df)} players")
+
+# -------------------------
+# Add opponent strength features
+# -------------------------
+def add_opponent_strength_features(df, ranking_order, rank_to_int):
+    """Calculate weighted performance against different rank levels"""
+    for rank in ranking_order:
+        rank_idx = rank_to_int[rank]
+        wins = df[f"{rank}_wins"]
+        losses = df[f"{rank}_losses"]
+        total = wins + losses
+        
+        # Weight by opponent strength (lower rank number = stronger)
+        opponent_weight = 1 - (rank_idx / len(ranking_order))
+        df[f"{rank}_weighted_performance"] = (wins - losses) * opponent_weight * total
+    
+    return df
+
+print("Adding opponent strength features...")
+df = add_opponent_strength_features(df, ranking_order, rank_to_int)
+
+# -------------------------
+# Add performance vs higher/lower ranks
+# -------------------------
+higher_ranks = ['A', 'B0', 'B2', 'B4']
+lower_ranks = ['D0', 'D2', 'D4', 'E0', 'E2']
+
+df['performance_vs_higher'] = df[[f"{r}_win_rate" for r in higher_ranks if f"{r}_win_rate" in df.columns]].mean(axis=1)
+df['performance_vs_lower'] = df[[f"{r}_win_rate" for r in lower_ranks if f"{r}_win_rate" in df.columns]].mean(axis=1)
+
+# Win/loss ratio
+df['win_loss_ratio'] = np.divide(df['total_wins'], df['total_losses'], 
+                                  out=np.zeros_like(df['total_wins'], dtype=float),
+                                  where=df['total_losses'] > 0)
+
+print("Added performance trend features")
+
 category_encoder = LabelEncoder()
 df["category_encoded"] = category_encoder.fit_transform(df["category"])
 
@@ -107,7 +152,8 @@ df["category_encoded"] = category_encoder.fit_transform(df["category"])
 base_feature_cols = ["current_rank_encoded", "category_encoded"]
 advanced_feature_cols = [
     'total_wins', 'total_losses', 'total_matches', 'overall_win_rate',
-    'performance_consistency', 'recent_performance', 'rank_progression_potential'
+    'performance_consistency', 'recent_performance', 'rank_progression_potential',
+    'performance_vs_higher', 'performance_vs_lower', 'win_loss_ratio'
 ]
 
 # Add important win_rate features
@@ -117,7 +163,10 @@ win_rate_cols = [f"{rank}_win_rate" for rank in important_ranks if f"{rank}_win_
 # Add total games per rank for better context
 total_cols = [f"{rank}_total" for rank in ['E0', 'E2', 'E4', 'E6'] if f"{rank}_total" in df.columns]
 
-feature_cols = base_feature_cols + advanced_feature_cols + win_rate_cols + total_cols
+# Add weighted performance features for key ranks
+weighted_perf_cols = [f"{rank}_weighted_performance" for rank in important_ranks if f"{rank}_weighted_performance" in df.columns]
+
+feature_cols = base_feature_cols + advanced_feature_cols + win_rate_cols + total_cols + weighted_perf_cols
 
 # -------------------------
 # Filter out extremely rare classes
@@ -303,6 +352,23 @@ def evaluate_model(model, X_test, y_test, model_name):
                               target_names=target_names,
                               zero_division=0))
     
+    # Better metrics for imbalanced data
+    kappa = cohen_kappa_score(y_test, y_pred)
+    mcc = matthews_corrcoef(y_test, y_pred)
+    
+    print(f"\nAdvanced Metrics:")
+    print(f"  Cohen's Kappa: {kappa:.4f} (agreement beyond chance)")
+    print(f"  Matthews Correlation: {mcc:.4f} (quality of binary classification)")
+    
+    # Per-class accuracy
+    print(f"\nPer-Class Accuracy:")
+    for class_label in present_classes:
+        mask = y_test == class_label
+        if mask.sum() > 0:
+            class_acc = (y_pred[mask] == class_label).mean()
+            rank_name = int_to_rank[class_label]
+            print(f"  {rank_name}: {class_acc:.3f} ({mask.sum()} samples)")
+    
     return accuracy
 
 # Evaluate model
@@ -326,8 +392,16 @@ print("\nOPTIMIZED REGULAR MODEL TRAINED & SAVED")
 print("Performance improvements:")
 print("✓ Early class filtering (>= 10 samples)")
 print("✓ Combined over/undersampling to reduce NG dominance")
-print("✓ Advanced feature engineering (7 new features)")
+print("✓ Advanced feature engineering (10 new features)")
+print("✓ Opponent strength features (weighted performance)")
+print("✓ Performance vs higher/lower ranks")
+print("✓ Win/loss ratio")
 print("✓ Feature scaling with StandardScaler")
+print("✓ Better evaluation metrics (Kappa, MCC, per-class accuracy)")
+print(f"✓ Final dataset shape: {df.shape}")
+print(f"✓ Number of features: {len(feature_cols)}")
+print(f"✓ Classes in training: {len(set(y_train_sm))}")
+print(f"✓ Classes in test: {len(set(y_test))}")
 print("✓ Optimized RandomForest parameters")
 print("✓ Reduced feature dimensionality (focused selection)")
 print(f"✓ Final dataset shape: {df.shape}")

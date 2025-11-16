@@ -3,12 +3,18 @@ import ast
 import joblib
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.model_selection import train_test_split, cross_val_score
 from imblearn.over_sampling import SMOTE
+try:
+    from xgboost import XGBClassifier
+    XGBOOST_AVAILABLE = True
+except ImportError:
+    XGBOOST_AVAILABLE = False
+    print("XGBoost not available. Install with: pip install xgboost")
 from imblearn.under_sampling import RandomUnderSampler
 from imblearn.combine import SMOTETomek
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, cohen_kappa_score, matthews_corrcoef
 from sklearn.preprocessing import StandardScaler
 import warnings
 warnings.filterwarnings('ignore')
@@ -134,6 +140,51 @@ def create_advanced_features_fast(df, ranking_order):
 
 df = create_advanced_features_fast(df, ranking_order)
 
+# -------------------------
+# Filter players with at least 15 matches
+# -------------------------
+min_matches = 15
+print(f"\nFiltering players with at least {min_matches} matches...")
+print(f"Before filtering: {len(df)} players")
+df = df[df['total_matches'] >= min_matches]
+print(f"After filtering: {len(df)} players")
+
+# -------------------------
+# Add opponent strength features
+# -------------------------
+def add_opponent_strength_features(df, ranking_order, rank_to_int):
+    """Calculate weighted performance against different rank levels"""
+    for rank in ranking_order:
+        rank_idx = rank_to_int[rank]
+        wins = df[f"{rank}_wins"]
+        losses = df[f"{rank}_losses"]
+        total = wins + losses
+        
+        # Weight by opponent strength (lower rank number = stronger)
+        opponent_weight = 1 - (rank_idx / len(ranking_order))
+        df[f"{rank}_weighted_performance"] = (wins - losses) * opponent_weight * total
+    
+    return df
+
+print("Adding opponent strength features...")
+df = add_opponent_strength_features(df, ranking_order, rank_to_int)
+
+# -------------------------
+# Add performance vs higher/lower ranks
+# -------------------------
+higher_ranks = ['A', 'B0', 'B2', 'B4']
+lower_ranks = ['D0', 'D2', 'D4', 'E0', 'E2']
+
+df['performance_vs_higher'] = df[[f"{r}_win_rate" for r in higher_ranks if f"{r}_win_rate" in df.columns]].mean(axis=1)
+df['performance_vs_lower'] = df[[f"{r}_win_rate" for r in lower_ranks if f"{r}_win_rate" in df.columns]].mean(axis=1)
+
+# Win/loss ratio
+df['win_loss_ratio'] = np.divide(df['total_wins'], df['total_losses'], 
+                                  out=np.zeros_like(df['total_wins'], dtype=float),
+                                  where=df['total_losses'] > 0)
+
+print("Added performance trend features")
+
 # Encode categorical variables
 category_encoder = LabelEncoder()
 df["category_encoded"] = category_encoder.fit_transform(df["category"])
@@ -142,7 +193,8 @@ df["category_encoded"] = category_encoder.fit_transform(df["category"])
 base_feature_cols = ["current_rank_encoded", "category_encoded"]
 advanced_feature_cols = [
     'total_wins', 'total_losses', 'total_matches', 'overall_win_rate',
-    'performance_consistency', 'recent_performance', 'rank_progression_potential'
+    'performance_consistency', 'recent_performance', 'rank_progression_potential',
+    'performance_vs_higher', 'performance_vs_lower', 'win_loss_ratio'
 ]
 
 # Select only high-value features to reduce dimensionality
@@ -157,6 +209,10 @@ feature_cols.extend(win_rate_cols)
 # Add total games per rank for better context
 total_cols = [f"{rank}_total" for rank in ['E0', 'E2', 'E4', 'E6'] if f"{rank}_total" in df.columns]
 feature_cols.extend(total_cols)
+
+# Add weighted performance features for key ranks
+weighted_perf_cols = [f"{rank}_weighted_performance" for rank in important_ranks if f"{rank}_weighted_performance" in df.columns]
+feature_cols.extend(weighted_perf_cols)
 
 X = df[feature_cols].fillna(0)
 y = df["next_rank_encoded"]
@@ -305,6 +361,41 @@ def train_optimized_model(X_train, y_train, balance_method):
 best_model = train_optimized_model(X_train_sm, y_train_sm, balance_method)
 
 # -------------------------
+# Optional: Compare with XGBoost (for reference only)
+# -------------------------
+if XGBOOST_AVAILABLE:
+    print("\nTraining XGBoost for comparison...")
+    
+    # XGBoost requires classes to be 0-indexed, so remap
+    unique_classes = np.unique(y_train_sm)
+    class_mapping = {old: new for new, old in enumerate(unique_classes)}
+    reverse_mapping = {new: old for old, new in class_mapping.items()}
+    
+    y_train_xgb = np.array([class_mapping[y] for y in y_train_sm])
+    y_test_xgb = np.array([class_mapping.get(y, 0) for y in y_test])
+    
+    xgb_model = XGBClassifier(
+        n_estimators=300,
+        max_depth=8,
+        learning_rate=0.05,
+        subsample=0.8,
+        colsample_bytree=0.8,
+        random_state=42,
+        n_jobs=-1,
+        eval_metric='mlogloss'
+    )
+    
+    cv_scores_xgb = cross_val_score(xgb_model, X_train_sm, y_train_xgb, cv=5, scoring='accuracy')
+    print(f"XGBoost CV Accuracy: {cv_scores_xgb.mean():.4f} (+/- {cv_scores_xgb.std() * 2:.4f})")
+    
+    cv_f1_scores_xgb = cross_val_score(xgb_model, X_train_sm, y_train_xgb, cv=5, scoring='f1_weighted')
+    print(f"XGBoost CV F1 (weighted): {cv_f1_scores_xgb.mean():.4f} (+/- {cv_f1_scores_xgb.std() * 2:.4f})")
+    
+    print("Note: Using RandomForest model (XGBoost shown for comparison only)")
+else:
+    print("XGBoost not available for comparison")
+
+# -------------------------
 # Fast Model Evaluation
 # -------------------------
 def evaluate_model_fast(model, X_test, y_test, model_name):
@@ -338,6 +429,23 @@ def evaluate_model_fast(model, X_test, y_test, model_name):
                               labels=present_classes,
                               target_names=target_names,
                               zero_division=0))
+    
+    # Better metrics for imbalanced data
+    kappa = cohen_kappa_score(y_test, y_pred)
+    mcc = matthews_corrcoef(y_test, y_pred)
+    
+    print(f"\nAdvanced Metrics:")
+    print(f"  Cohen's Kappa: {kappa:.4f} (agreement beyond chance)")
+    print(f"  Matthews Correlation: {mcc:.4f} (quality of binary classification)")
+    
+    # Per-class accuracy
+    print(f"\nPer-Class Accuracy:")
+    for class_label in present_classes:
+        mask = y_test == class_label
+        if mask.sum() > 0:
+            class_acc = (y_pred[mask] == class_label).mean()
+            rank_name = int_to_rank[class_label]
+            print(f"  {rank_name}: {class_acc:.3f} ({mask.sum()} samples)")
     
     return accuracy
 

@@ -305,7 +305,7 @@ def main():
     st.markdown("Voorspel je klassement op basis van je kaart")
     
     # Model accuracy note
-    st.info("📊 Model Accuracy: ~85% (trained on Antwerpen data, seasons 15-26)")
+    st.info(" Model Accuracy: ~85% (trained on Antwerpen data, seasons 15-26)")
 
     # Load models and encoders
     regular_model, regular_category_encoder, regular_feature_cols, regular_int_to_rank, regular_rank_to_int, regular_ranking_order, regular_scaler = load_regular_model_and_encoders()
@@ -515,7 +515,7 @@ def main():
                             
                             # Display final conclusion (bigger)
                             st.markdown("---")
-                            st.markdown(f"**Voorspelling Klassement:**")
+                            st.markdown(f"** Voorspelling Klassement: **")
                             st.markdown(f"# {filtered_predicted_rank}")
                             st.caption(f"Jeugd model | Confidence: {filtered_confidence:.1f}% | {message}")
                             
@@ -539,7 +539,7 @@ def main():
                             emoji, arrow, color_type, message = get_rank_comparison(current_rank, predicted_rank, rank_to_int)
                             
                             # Display prediction
-                            st.markdown(f"** Voorspelling Klassement:**")
+                            st.markdown(f"** Voorspelling Klassement: **")
                             st.markdown(f"# {predicted_rank}")
                             st.caption(f"Confidence: {confidence:.1f}% | {message}")
                         else:
