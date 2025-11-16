@@ -110,6 +110,15 @@ df = df[df['total_matches'] >= min_matches]
 print(f"After filtering: {len(df)} players")
 
 # -------------------------
+# Exclude youth players (they have their own filtered model)
+# -------------------------
+youth_categories = ["BEN", "PRE", "MIN", "CAD"]
+print(f"\nExcluding youth categories from regular model: {youth_categories}")
+print(f"Before excluding youth: {len(df)} players")
+df = df[~df['category'].isin(youth_categories)]
+print(f"After excluding youth: {len(df)} players")
+
+# -------------------------
 # Add opponent strength features
 # -------------------------
 def add_opponent_strength_features(df, ranking_order, rank_to_int):
