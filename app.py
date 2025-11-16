@@ -422,16 +422,19 @@ def main():
                         st.metric("Seizoen", player_data.get('season', 'Unknown'))
                         st.metric("Unique Index", player_data.get('unique_index', 'Unknown'))
                     
-                    # Choose model based on category and whether filtered model has enough training data
+                    # Choose model based on category and rank
                     category = player_data.get('category')
                     current_rank = player_data.get('ranking') or player_data.get('current_ranking')
                     
-                    # Check if filtered model can handle this rank
+                    # Define ranks eligible for filtered model (C4 and lower)
+                    filtered_eligible_ranks = ['C4', 'C6', 'D0', 'D2', 'D4', 'D6', 'E0', 'E2', 'E4', 'E6', 'NG']
+                    
+                    # Check if filtered model should be used
                     use_filtered = False
                     if category in ["BEN", "PRE", "MIN", "CAD"]:
-                        # Check if this rank exists in filtered model's training data
-                        if current_rank in filtered_rank_to_int:
-                            # Filtered model was trained on this rank, use it
+                        # Check if rank is C4 or lower AND exists in filtered model
+                        if current_rank in filtered_eligible_ranks and current_rank in filtered_rank_to_int:
+                            # Use filtered model
                             use_filtered = True
                             model = filtered_model
                             category_encoder = filtered_category_encoder
@@ -442,7 +445,7 @@ def main():
                             scaler = filtered_scaler
                             model_type = "filtered (youth categories)"
                         else:
-                            # Rank not in filtered model (too few training examples), use regular
+                            # Rank is too high (better than C4) or not in filtered model, use regular
                             model = regular_model
                             category_encoder = regular_category_encoder
                             feature_cols = regular_feature_cols
@@ -450,8 +453,13 @@ def main():
                             int_to_rank = regular_int_to_rank
                             ranking_order = regular_ranking_order
                             scaler = regular_scaler
-                            model_type = f"regular (rank {current_rank} not in youth model)"
-                            st.info(f"ℹ️ Rank {current_rank} heeft te weinig trainingsdata in het jeugdmodel. Regular model wordt gebruikt voor betere nauwkeurigheid.")
+                            
+                            if current_rank not in filtered_eligible_ranks:
+                                model_type = f"regular (rank {current_rank} te hoog voor jeugdmodel)"
+                                st.info(f"ℹ️ Rank {current_rank} is te hoog (beter dan C4). Regular model wordt gebruikt voor betere nauwkeurigheid.")
+                            else:
+                                model_type = f"regular (rank {current_rank} niet in jeugdmodel)"
+                                st.info(f"ℹ️ Rank {current_rank} heeft te weinig trainingsdata in het jeugdmodel. Regular model wordt gebruikt.")
                     else:
                         # Not a youth category, use regular model
                         model = regular_model
