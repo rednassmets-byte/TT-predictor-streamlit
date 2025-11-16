@@ -36,11 +36,15 @@
 
 ## Quick Deployment Steps
 
-### Option 1: Using the Deploy Script (Windows)
+### Option 1: Using the Quick Push Script (Windows) - EASIEST
 
-Simply double-click `deploy.bat` and follow the prompts!
+Simply double-click **`quick_push.bat`** - it will push to your current branch!
 
-### Option 2: Manual Deployment
+### Option 2: Push to Master Branch (Recommended)
+
+Double-click **`push_to_github.bat`** - it will merge to master and push!
+
+### Option 3: Manual Deployment
 
 ```bash
 # 1. Add all files
@@ -50,14 +54,21 @@ git add .
 git commit -m "Deploy to Streamlit Cloud"
 
 # 3. Push to GitHub
-git push origin main
+git push origin blackboxai/update-app
+# OR push to master:
+# git checkout master
+# git merge blackboxai/update-app
+# git push origin master
 
 # 4. Go to https://share.streamlit.io
 # 5. Click "New app"
-# 6. Select your repository
-# 7. Set main file: app.py
-# 8. Click "Deploy"
+# 6. Repository: rednassmets-byte/TT-predictor-streamlit
+# 7. Branch: master (or blackboxai/update-app)
+# 8. Main file: app.py
+# 9. Click "Deploy"
 ```
+
+**Your Repository**: https://github.com/rednassmets-byte/TT-predictor-streamlit
 
 ## Pre-Deployment Verification
 
