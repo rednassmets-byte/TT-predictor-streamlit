@@ -422,24 +422,38 @@ def main():
                         st.metric("Seizoen", player_data.get('season', 'Unknown'))
                         st.metric("Unique Index", player_data.get('unique_index', 'Unknown'))
                     
-                    # Choose model based on category and ranking
+                    # Choose model based on category and whether filtered model has enough training data
                     category = player_data.get('category')
                     current_rank = player_data.get('ranking') or player_data.get('current_ranking')
                     
-                    # Define high ranks (C2 and better)
-                    high_ranks = ['A', 'B0', 'B2', 'B4', 'B6', 'C0', 'C2']
-                    
-                    # Use regular model for youth players with high ranking (C2 or better)
-                    if category in ["BEN", "PRE", "MIN", "CAD"] and current_rank not in high_ranks:
-                        model = filtered_model
-                        category_encoder = filtered_category_encoder
-                        feature_cols = filtered_feature_cols
-                        rank_to_int = filtered_rank_to_int
-                        int_to_rank = filtered_int_to_rank
-                        ranking_order = filtered_ranking_order
-                        scaler = filtered_scaler
-                        model_type = "filtered (youth categories)"
+                    # Check if filtered model can handle this rank
+                    use_filtered = False
+                    if category in ["BEN", "PRE", "MIN", "CAD"]:
+                        # Check if this rank exists in filtered model's training data
+                        if current_rank in filtered_rank_to_int:
+                            # Filtered model was trained on this rank, use it
+                            use_filtered = True
+                            model = filtered_model
+                            category_encoder = filtered_category_encoder
+                            feature_cols = filtered_feature_cols
+                            rank_to_int = filtered_rank_to_int
+                            int_to_rank = filtered_int_to_rank
+                            ranking_order = filtered_ranking_order
+                            scaler = filtered_scaler
+                            model_type = "filtered (youth categories)"
+                        else:
+                            # Rank not in filtered model (too few training examples), use regular
+                            model = regular_model
+                            category_encoder = regular_category_encoder
+                            feature_cols = regular_feature_cols
+                            rank_to_int = regular_rank_to_int
+                            int_to_rank = regular_int_to_rank
+                            ranking_order = regular_ranking_order
+                            scaler = regular_scaler
+                            model_type = f"regular (rank {current_rank} not in youth model)"
+                            st.info(f"ℹ️ Rank {current_rank} heeft te weinig trainingsdata in het jeugdmodel. Regular model wordt gebruikt voor betere nauwkeurigheid.")
                     else:
+                        # Not a youth category, use regular model
                         model = regular_model
                         category_encoder = regular_category_encoder
                         feature_cols = regular_feature_cols
@@ -447,12 +461,7 @@ def main():
                         int_to_rank = regular_int_to_rank
                         ranking_order = regular_ranking_order
                         scaler = regular_scaler
-                        
-                        # Set model type message
-                        if category in ["BEN", "PRE", "MIN", "CAD"]:
-                            model_type = "regular (high-ranked youth player)"
-                        else:
-                            model_type = "regular (all categories)"
+                        model_type = "regular (all categories)"
 
                     # Display performance data
                     st.subheader("KAART")
