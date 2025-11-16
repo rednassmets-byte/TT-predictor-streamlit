@@ -540,7 +540,7 @@ def main():
                             
                             # Display prediction
                             st.markdown(f"** Voorspelling Klassement:**")
-                            st.markdown(f"#{predicted_rank}")
+                            st.markdown(f"# {predicted_rank}")
                             st.caption(f"Confidence: {confidence:.1f}% | {message}")
                         else:
                             st.error("Unable to make prediction. Please check the input data.")
