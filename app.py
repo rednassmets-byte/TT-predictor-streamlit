@@ -422,9 +422,15 @@ def main():
                         st.metric("Seizoen", player_data.get('season', 'Unknown'))
                         st.metric("Unique Index", player_data.get('unique_index', 'Unknown'))
                     
-                    # Choose model based on category
+                    # Choose model based on category and ranking
                     category = player_data.get('category')
-                    if category in ["BEN", "PRE", "MIN", "CAD"]:
+                    current_rank = player_data.get('ranking') or player_data.get('current_ranking')
+                    
+                    # Define high ranks (C2 and better)
+                    high_ranks = ['A', 'B0', 'B2', 'B4', 'B6', 'C0', 'C2']
+                    
+                    # Use regular model for youth players with high ranking (C2 or better)
+                    if category in ["BEN", "PRE", "MIN", "CAD"] and current_rank not in high_ranks:
                         model = filtered_model
                         category_encoder = filtered_category_encoder
                         feature_cols = filtered_feature_cols
@@ -440,8 +446,13 @@ def main():
                         rank_to_int = regular_rank_to_int
                         int_to_rank = regular_int_to_rank
                         ranking_order = regular_ranking_order
-                        scaler = regular_scaler  # Regular model now uses scaler too
-                        model_type = "regular (all categories)"
+                        scaler = regular_scaler
+                        
+                        # Set model type message
+                        if category in ["BEN", "PRE", "MIN", "CAD"]:
+                            model_type = "regular (high-ranked youth player)"
+                        else:
+                            model_type = "regular (all categories)"
 
                     # Display performance data
                     st.subheader("KAART")
