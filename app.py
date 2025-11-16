@@ -284,195 +284,164 @@ def main():
     else:
         player_name = st.sidebar.text_input("Player Name", value="")
     
-    # Main content area
-    col1, col2 = st.columns([2, 1])
+    # Predict button in sidebar
+    st.sidebar.markdown("---")
+    predict_button = st.sidebar.button(" Voorspel Klassement", type="primary", use_container_width=True)
     
-    with col1:
-        st.header("Kaart & Prediction")
-        
-        if st.button("Get Player Data and Predict", type="primary"):
-            with st.spinner("Fetching player data and making prediction..."):
-                try:
-                    # Get player data from API
-                    player_data = get_data(club=club_code, name=player_name, season=season)
+    # Main content area
+    st.header("Kaart & Prediction")
+    
+    if predict_button:
+        with st.spinner("Fetching player data and making prediction..."):
+            try:
+                # Get player data from API
+                player_data = get_data(club=club_code, name=player_name, season=season)
+                
+                if player_data:
+                    # Display player information
+                    st.subheader("Kaart")
                     
-                    if player_data:
-                        # Display player information
-                        st.subheader("Kaart")
-                        
-                        info_col1, info_col2, info_col3 = st.columns(3)
-                        
-                        with info_col1:
-                            st.metric("Current Ranking", player_data.get('current_ranking', 'Unknown'))
-                            st.metric("Category", player_data.get('category', 'Unknown'))
-                        
-                        with info_col2:
-                            st.metric("Club", player_data.get('club_name', 'Unknown'))
-                            st.metric("Province", player_data.get('province', 'Unknown'))
-                        
-                        with info_col3:
-                            st.metric("Season", player_data.get('season', 'Unknown'))
-                            st.metric("Unique Index", player_data.get('unique_index', 'Unknown'))
-                        
-                        # Choose model based on category
-                        category = player_data.get('category')
-                        if category in ["BEN", "PRE", "MIN", "CAD"]:
-                            model = filtered_model
-                            category_encoder = filtered_category_encoder
-                            feature_cols = filtered_feature_cols
-                            rank_to_int = filtered_rank_to_int
-                            int_to_rank = filtered_int_to_rank
-                            ranking_order = filtered_ranking_order
-                            scaler = filtered_scaler
-                            model_type = "filtered (youth categories)"
+                    info_col1, info_col2, info_col3 = st.columns(3)
+                    
+                    with info_col1:
+                        st.metric("Current Ranking", player_data.get('current_ranking', 'Unknown'))
+                        st.metric("Category", player_data.get('category', 'Unknown'))
+                    
+                    with info_col2:
+                        st.metric("Club", player_data.get('club_name', 'Unknown'))
+                        st.metric("Province", player_data.get('province', 'Unknown'))
+                    
+                    with info_col3:
+                        st.metric("Season", player_data.get('season', 'Unknown'))
+                        st.metric("Unique Index", player_data.get('unique_index', 'Unknown'))
+                    
+                    # Choose model based on category
+                    category = player_data.get('category')
+                    if category in ["BEN", "PRE", "MIN", "CAD"]:
+                        model = filtered_model
+                        category_encoder = filtered_category_encoder
+                        feature_cols = filtered_feature_cols
+                        rank_to_int = filtered_rank_to_int
+                        int_to_rank = filtered_int_to_rank
+                        ranking_order = filtered_ranking_order
+                        scaler = filtered_scaler
+                        model_type = "filtered (youth categories)"
+                    else:
+                        model = regular_model
+                        category_encoder = regular_category_encoder
+                        feature_cols = regular_feature_cols
+                        rank_to_int = regular_rank_to_int
+                        int_to_rank = regular_int_to_rank
+                        ranking_order = regular_ranking_order
+                        scaler = regular_scaler  # Regular model now uses scaler too
+                        model_type = "regular (all categories)"
+
+                    # Display performance data
+                    st.subheader("KAART")
+
+                    # Group specific ranks: A together, B0 and B0e together, others separate
+                    rank_groups = {}
+                    for rank in ranking_order:
+                        if rank.startswith('A'):
+                            group_key = 'A'
+                        elif rank in ['B0', 'B0e']:
+                            group_key = 'B0'
                         else:
-                            model = regular_model
-                            category_encoder = regular_category_encoder
-                            feature_cols = regular_feature_cols
-                            rank_to_int = regular_rank_to_int
-                            int_to_rank = regular_int_to_rank
-                            ranking_order = regular_ranking_order
-                            scaler = regular_scaler  # Regular model now uses scaler too
-                            model_type = "regular (all categories)"
+                            group_key = rank  # Keep others separate
 
-                        # Display performance data
-                        st.subheader("KAART")
+                        if group_key not in rank_groups:
+                            rank_groups[group_key] = {'wins': 0, 'losses': 0}
+                        wins, losses = player_data.get('kaart', {}).get(rank, [0, 0])
+                        rank_groups[group_key]['wins'] += wins
+                        rank_groups[group_key]['losses'] += losses
 
-                        # Group specific ranks: A together, B0 and B0e together, others separate
-                        rank_groups = {}
-                        for rank in ranking_order:
-                            if rank.startswith('A'):
-                                group_key = 'A'
-                            elif rank in ['B0', 'B0e']:
-                                group_key = 'B0'
-                            else:
-                                group_key = rank  # Keep others separate
+                    # Create performance DataFrame
+                    performance_data = []
+                    for group_key, stats in rank_groups.items():
+                        wins = stats['wins']
+                        losses = stats['losses']
+                        total_matches = wins + losses
+                        performance_data.append({
+                            'Rank/Category': group_key,
+                            'Wins': wins,
+                            'Losses': losses,
+                            'Win Rate': f"{(wins/total_matches)*100:.1f}%" if total_matches > 0 else "0%"
+                        })
 
-                            if group_key not in rank_groups:
-                                rank_groups[group_key] = {'wins': 0, 'losses': 0}
-                            wins, losses = player_data.get('kaart', {}).get(rank, [0, 0])
-                            rank_groups[group_key]['wins'] += wins
-                            rank_groups[group_key]['losses'] += losses
+                    performance_df = pd.DataFrame(performance_data)
+                    st.dataframe(performance_df, width='stretch')
 
-                        # Create performance DataFrame
-                        performance_data = []
-                        for group_key, stats in rank_groups.items():
-                            wins = stats['wins']
-                            losses = stats['losses']
-                            total_matches = wins + losses
-                            performance_data.append({
-                                'Rank/Category': group_key,
-                                'Wins': wins,
-                                'Losses': losses,
-                                'Total Matches': total_matches,
-                                'Win Rate': f"{(wins/total_matches)*100:.1f}%" if total_matches > 0 else "0%"
-                            })
+                    # Make prediction
+                    st.subheader("Voorspelling  Klassement")
 
-                        performance_df = pd.DataFrame(performance_data)
-                        st.dataframe(performance_df, width='stretch')
+                    predicted_rank = predict_next_rank(
+                        player_data, model, feature_cols, category_encoder, 
+                        rank_to_int, int_to_rank, ranking_order, scaler
+                    )
 
-                        # Make prediction
-                        st.subheader("Voorspelling  Klassement")
-
-                        predicted_rank = predict_next_rank(
-                            player_data, model, feature_cols, category_encoder, 
-                            rank_to_int, int_to_rank, ranking_order, scaler
-                        )
-
-                        if predicted_rank:
-                            # Show prediction
-                            current_rank = player_data.get('ranking') or player_data.get('current_ranking')
-                            
-                            # Display prediction with comparison
-                            col1, col2, col3 = st.columns([1, 1, 1])
-                            
-                            with col1:
-                                st.metric("Huidig Klassement", current_rank)
-                            
-                            with col2:
-                                st.metric("Voorspeld Klassement", predicted_rank)
-                            
-                            with col3:
-                                # Calculate rank change
-                                if current_rank != predicted_rank:
-                                    current_idx = rank_to_int.get(current_rank, 999)
-                                    predicted_idx = rank_to_int.get(predicted_rank, 999)
-                                    rank_diff = current_idx - predicted_idx
-                                    
-                                    if rank_diff > 0:
-                                        st.metric("Verandering", f"↑ {rank_diff} rank{'s' if rank_diff > 1 else ''}", delta=f"+{rank_diff}", delta_color="normal")
-                                    elif rank_diff < 0:
-                                        st.metric("Verandering", f"↓ {abs(rank_diff)} rank{'s' if abs(rank_diff) > 1 else ''}", delta=f"{rank_diff}", delta_color="inverse")
-                                    else:
-                                        st.metric("Verandering", "Geen verandering", delta="0", delta_color="off")
-                                else:
-                                    st.metric("Verandering", "Geen verandering", delta="0", delta_color="off")
-                            
-                            st.caption(f"Model: {model_type} | Categorie: {category}")
-                        else:
-                            st.error("Unable to make prediction. Please check the input data.")
+                    if predicted_rank:
+                        # Show prediction
+                        current_rank = player_data.get('ranking') or player_data.get('current_ranking')
                         
-                        # Calculate performance score (1-100)
-                        st.subheader("Performance Score")
-                        total_wins = sum(wins for wins, _ in player_data.get('kaart', {}).values())
-                        total_losses = sum(losses for _, losses in player_data.get('kaart', {}).values())
-                        total_matches = total_wins + total_losses
-
-                        if total_matches > 0:
-                            # Calculate performance score based on predicted vs current ranking difference and win rate
-                            # Higher predicted rank (lower number) gives positive boost, modulated by win rate
-                            current_rank = player_data.get('ranking') or player_data.get('current_ranking', '')
-                            current_rank_num = rank_to_int.get(current_rank, 0)
-                            predicted_rank_num = rank_to_int.get(predicted_rank, current_rank_num)
-                            rank_difference = current_rank_num - predicted_rank_num  # Positive if predicted is higher rank
-
-                            win_rate = total_wins / total_matches if total_matches > 0 else 0
-
-                            # Scale to 0-100: base from rank difference, modulated by win rate for more dynamic scoring
-                            performance_score = int(50 + rank_difference * 10 + (win_rate - 0.5) * 20)  # Win rate modulation adds/subtracts up to 10 points
-                            performance_score = max(0, min(100, performance_score))
-
-                            # Color coding: green for good (>=60), yellow for average (40-59), red for poor (<40)
-                            win_rate = total_wins / total_matches if total_matches > 0 else 0
-                            rank_improvement = rank_difference
-                            if performance_score >= 60:
-                                st.metric("Performance Score (1-100)", performance_score, delta="Excellent")
-                                st.success(f"Predicted ranking improvement: {rank_improvement} levels. {total_wins} wins out of {total_matches} matches ({win_rate:.1%} win rate)")
-                            elif performance_score >= 40:
-                                st.metric("Performance Score (1-100)", performance_score, delta="Good")
-                                st.warning(f"Predicted ranking improvement: {rank_improvement} levels. {total_wins} wins out of {total_matches} matches ({win_rate:.1%} win rate)")
-                            else:
-                                st.metric("Performance Score (1-100)", performance_score, delta="Needs Improvement")
-                                st.error(f"Predicted ranking improvement: {rank_improvement} levels. {total_wins} wins out of {total_matches} matches ({win_rate:.1%} win rate)")
-                        else:
-                            st.metric("Performance Score (1-100)", 0, delta="No Data")
-                            st.info("No matches played this season")
+                        # Display prediction with comparison
+                        col1, col2 = st.columns([1, 1])
+                        
+                        with col1:
+                            st.metric("Huidig Klassement", current_rank)
+                        
+                        with col2:
+                            st.metric("Voorspeld Klassement", predicted_rank)
                         
                     else:
-                        st.error("Could not fetch player data. Please check the club code and player name.")
-                        
-                except Exception as e:
-                    st.error(f"Error: {e}")
-    
-    with col2:
-        st.header("DATA")
-        st.markdown("""
-        machine learning op data van Antwerpen seizoen 15-26
-        """)
-        
-        st.header("Over Ons")
-        st.markdown("""
-        Gemaakt door Smets Sander
-        credits:
-        Smets Steven,
-        Tim Jacobs,
-        vttl api
+                        st.error("Unable to make prediction. Please check the input data.")
+                    
+                    # Calculate performance score (1-100)
+                    st.subheader("Performance Score")
+                    total_wins = sum(wins for wins, _ in player_data.get('kaart', {}).values())
+                    total_losses = sum(losses for _, losses in player_data.get('kaart', {}).values())
+                    total_matches = total_wins + total_losses
 
-        
-        *Uses machine learning model trained on historical performance data.*
-        """)
-        
-       
+                    if total_matches > 0:
+                        # Calculate performance score based on predicted vs current ranking difference and win rate
+                        # Higher predicted rank (lower number) gives positive boost, modulated by win rate
+                        current_rank = player_data.get('ranking') or player_data.get('current_ranking', '')
+                        current_rank_num = rank_to_int.get(current_rank, 0)
+                        predicted_rank_num = rank_to_int.get(predicted_rank, current_rank_num)
+                        rank_difference = current_rank_num - predicted_rank_num  # Positive if predicted is higher rank
+
+                        win_rate = total_wins / total_matches if total_matches > 0 else 0
+
+                        # Scale to 0-100: base from rank difference, modulated by win rate for more dynamic scoring
+                        performance_score = int(50 + rank_difference * 10 + (win_rate - 0.5) * 20)  # Win rate modulation adds/subtracts up to 10 points
+                        performance_score = max(0, min(100, performance_score))
+
+                        # Color coding: green for good (>=60), yellow for average (40-59), red for poor (<40)
+                        win_rate = total_wins / total_matches if total_matches > 0 else 0
+                        rank_improvement = rank_difference
+                        if performance_score >= 60:
+                            st.metric("Performance Score (1-100)", performance_score, delta="Excellent")
+                            st.success(f"Predicted ranking improvement: {rank_improvement} levels. {total_wins} wins out of {total_matches} matches ({win_rate:.1%} win rate)")
+                        elif performance_score >= 40:
+                            st.metric("Performance Score (1-100)", performance_score, delta="Good")
+                            st.warning(f"Predicted ranking improvement: {rank_improvement} levels. {total_wins} wins out of {total_matches} matches ({win_rate:.1%} win rate)")
+                        else:
+                            st.metric("Performance Score (1-100)", performance_score, delta="Needs Improvement")
+                            st.error(f"Predicted ranking improvement: {rank_improvement} levels. {total_wins} wins out of {total_matches} matches ({win_rate:.1%} win rate)")
+                    else:
+                        st.metric("Performance Score (1-100)", 0, delta="No Data")
+                        st.info("No matches played this season")
+                    
+                    # Display info at bottom
+                    st.markdown("---")
+                    st.caption(f"Model: {model_type} | Categorie: {category}")
+                    st.caption("Machine learning op data van Antwerpen seizoen 15-26")
+                    st.caption("Gemaakt door Smets Sander | Credits: Smets Steven, Tim Jacobs, vttl api")
+                    
+                else:
+                    st.error("Could not fetch player data. Please check the club code and player name.")
+                    
+            except Exception as e:
+                st.error(f"Error: {e}")
 
 if __name__ == "__main__":
     main()
