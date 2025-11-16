@@ -25,16 +25,29 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Data files (keep small ones, exclude large CSVs if needed)
-# Uncomment if CSV files are too large for GitHub
-# *.csv
-
 # Exclude backup files
 *Backup.py
 appBackup.py
 
-# Keep model files - they're needed for deployment!
-# *.pkl files are included
-
 # Exclude test files
 test_*.pkl
+
+# Exclude large files that shouldn't be in repo
+*.exe
+kiro-ide-*.exe
+
+# Exclude ai folder (contains large model.pkl - 231 MB)
+ai/
+
+# Exclude TT predictor folder (duplicate files)
+TT predictor/
+
+# Keep only the essential model files in root directory
+# These are the ones needed for deployment:
+# - model.pkl (regular model)
+# - model_filtered.pkl (filtered model)
+# - scaler.pkl, scaler_filtered.pkl
+# - category_encoder.pkl, category_encoder_filtered.pkl
+# - rank_to_int.pkl, int_to_rank.pkl (and _filtered versions)
+# - feature_cols.pkl, feature_cols_filtered.pkl
+# - ranking_order.pkl, ranking_order_filtered.pkl
