@@ -12,8 +12,11 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 try:
     from database_maker import get_data, get_province_for_club, get_club_name_for_club, get_information
-except ImportError:
-    st.error("Could not import database_maker module. Please ensure database_maker.py is in the same directory.")
+except ImportError as e:
+    st.error(f"Could not import database_maker module: {e}")
+    st.info("This may be due to missing dependencies. Installing pyvttl from GitHub...")
+    st.code("pip install git+https://github.com/jacobstim/pyvttl.git")
+    st.warning("Please ensure all dependencies from requirements.txt are installed.")
     st.stop()
 
 # Load club data for province/club selection
