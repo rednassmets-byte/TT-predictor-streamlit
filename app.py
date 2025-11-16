@@ -5,7 +5,8 @@ import joblib
 import requests
 import os
 import sys
-
+import numpy as np
+from huggingface_hub import hf_hub_download
 # Add current directory to path to ensure imports work
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -14,27 +15,6 @@ try:
 except ImportError:
     st.error("Could not import database_maker module. Please ensure database_maker.py is in the same directory.")
     st.stop()
-
-def download_model_file():
-    """Download the model file if it doesn't exist"""
-    model_path = "ai/model.pkl"
-    if not os.path.exists(model_path):
-        st.info("Downloading model.pkl...")
-        os.makedirs("ai", exist_ok=True)
-
-        # Model file URL
-        model_url = "https://drive.google.com/uc?export=download&id=1p-5ljhiZFz89MRzu9yvlSnfSnoJUy-SI"
-
-        try:
-            response = requests.get(model_url)
-            with open(model_path, 'wb') as f:
-                f.write(response.content)
-            st.success("Model file downloaded successfully")
-            return True
-        except Exception as e:
-            st.error(f"Error downloading model: {e}")
-            return False
-    return True
 
 # Load club data for province/club selection
 try:
@@ -70,27 +50,51 @@ def get_members_for_club_season(club, season):
 
 # Load the pre-trained model and encoders
 @st.cache_resource
-def load_model_and_encoders():
-    # Download model file first
-    if not download_model_file():
-        return None, None, None, None, None, None
-
+def load_regular_model_and_encoders():
     try:
-        # Load all files using joblib (consistent with how they were saved)
-        category_encoder = joblib.load('ai/category_encoder.pkl')
-        feature_cols = joblib.load('ai/feature_cols.pkl')
-        int_to_rank = joblib.load('ai/int_to_rank.pkl')
-        rank_to_int = joblib.load('ai/rank_to_int.pkl')
-        ranking_order = joblib.load('ai/ranking_order.pkl')
-        model = joblib.load('ai/model.pkl')
-
-        return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order
+        # Try loading local files first (for improved model)
+        try:
+            category_encoder = joblib.load("category_encoder.pkl")
+            feature_cols = joblib.load("feature_cols.pkl")
+            int_to_rank = joblib.load("int_to_rank.pkl")
+            rank_to_int = joblib.load("rank_to_int.pkl")
+            ranking_order = joblib.load("ranking_order.pkl")
+            model = joblib.load("model.pkl")
+            scaler = joblib.load("scaler.pkl")
+            return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, scaler
+        except:
+            # Fallback to Hugging Face
+            repo_id = "zouteboom4/ai_prediction"
+            category_encoder = joblib.load(hf_hub_download(repo_id=repo_id, filename="category_encoder.pkl"))
+            feature_cols = joblib.load(hf_hub_download(repo_id=repo_id, filename="feature_cols.pkl"))
+            int_to_rank = joblib.load(hf_hub_download(repo_id=repo_id, filename="int_to_rank.pkl"))
+            rank_to_int = joblib.load(hf_hub_download(repo_id=repo_id, filename="rank_to_int.pkl"))
+            ranking_order = joblib.load(hf_hub_download(repo_id=repo_id, filename="ranking_order.pkl"))
+            model = joblib.load(hf_hub_download(repo_id=repo_id, filename="model.pkl"))
+            return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
     except Exception as e:
-        st.error(f"Error loading model files: {e}")
-        return None, None, None, None, None, None
+        st.error(f"Error loading regular model files: {e}")
+        return None, None, None, None, None, None, None
 
-def prepare_features(player_data, feature_cols, category_encoder, rank_to_int, ranking_order):
-    """Prepare features for model prediction"""
+@st.cache_resource
+def load_filtered_model_and_encoders():
+    try:
+        # Load local filtered model files
+        category_encoder = joblib.load("category_encoder_filtered.pkl")
+        feature_cols = joblib.load("feature_cols_filtered.pkl")
+        int_to_rank = joblib.load("int_to_rank_filtered.pkl")
+        rank_to_int = joblib.load("rank_to_int_filtered.pkl")
+        ranking_order = joblib.load("ranking_order_filtered.pkl")
+        model = joblib.load("model_filtered.pkl")
+        scaler = joblib.load("scaler_filtered.pkl")
+
+        return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, scaler
+    except Exception as e:
+        st.error(f"Error loading filtered model files: {e}")
+        return None, None, None, None, None, None, None
+
+def prepare_features(player_data, feature_cols, category_encoder, rank_to_int, ranking_order, scaler=None):
+    """Prepare features for model prediction with advanced feature engineering"""
     try:
         if not isinstance(player_data, dict):
             st.error("Player data is not a dictionary")
@@ -115,16 +119,34 @@ def prepare_features(player_data, feature_cols, category_encoder, rank_to_int, r
             'category_encoded': category_encoded
         }
 
-        # Add win/loss data from kaart
+        # Add win/loss data from kaart and calculate totals/win rates
+        total_wins = 0
+        total_losses = 0
+        
         for rank in ranking_order:
-            wins_key = f"{rank}_wins"
-            losses_key = f"{rank}_losses"
-
             wins = kaart.get(rank, [0, 0])[0]
             losses = kaart.get(rank, [0, 0])[1]
+            total = wins + losses
+            
+            features[f"{rank}_wins"] = wins
+            features[f"{rank}_losses"] = losses
+            features[f"{rank}_total"] = total
+            features[f"{rank}_win_rate"] = wins / total if total > 0 else 0
+            
+            total_wins += wins
+            total_losses += losses
 
-            features[wins_key] = wins
-            features[losses_key] = losses
+        # Add advanced features
+        total_matches = total_wins + total_losses
+        overall_win_rate = total_wins / total_matches if total_matches > 0 else 0
+        
+        features['total_wins'] = total_wins
+        features['total_losses'] = total_losses
+        features['total_matches'] = total_matches
+        features['overall_win_rate'] = overall_win_rate
+        features['performance_consistency'] = overall_win_rate * np.log1p(total_matches)
+        features['recent_performance'] = overall_win_rate * min(total_matches / 10, 1)
+        features['rank_progression_potential'] = overall_win_rate * (1 - current_rank_encoded / len(ranking_order))
 
         # Create DataFrame with all feature columns
         feature_df = pd.DataFrame([features])
@@ -134,23 +156,74 @@ def prepare_features(player_data, feature_cols, category_encoder, rank_to_int, r
             if col not in feature_df.columns:
                 feature_df[col] = 0
 
-        return feature_df[feature_cols]
+        # Select only the required features in the correct order
+        feature_df = feature_df[feature_cols]
+        
+        # Apply scaling if scaler is provided (for filtered model)
+        if scaler is not None:
+            feature_df = pd.DataFrame(
+                scaler.transform(feature_df),
+                columns=feature_cols
+            )
+
+        return feature_df
 
     except Exception as e:
         st.error(f"Error preparing features: {e}")
+        import traceback
+        st.error(traceback.format_exc())
         return None
 
-def predict_next_rank(player_data, model, feature_cols, category_encoder, rank_to_int, int_to_rank, ranking_order):
-    """Predict the next rank for a player"""
+def predict_next_rank(player_data, model, feature_cols, category_encoder, rank_to_int, int_to_rank, ranking_order, scaler=None):
+    """Predict the next rank for a player with automatic junior leniency"""
     try:
         # Prepare features
-        features = prepare_features(player_data, feature_cols, category_encoder, rank_to_int, ranking_order)
+        features = prepare_features(player_data, feature_cols, category_encoder, rank_to_int, ranking_order, scaler)
 
         if features is None:
             return None
 
         # Make prediction
         prediction = model.predict(features)[0]
+        original_prediction = prediction
+        
+        # Get prediction probabilities
+        prediction_proba = model.predict_proba(features)[0]
+        confidence = prediction_proba.max()
+        
+        # Apply automatic leniency for JUN and J19 categories
+        category = player_data.get('category', '')
+        if category in ['JUN', 'J19']:
+            # Calculate win rate for leniency determination
+            kaart = player_data.get('kaart', {})
+            total_wins = sum(wins for wins, _ in kaart.values())
+            total_losses = sum(losses for _, losses in kaart.values())
+            total_matches = total_wins + total_losses
+            win_rate = total_wins / total_matches if total_matches > 0 else 0
+            
+            # Determine leniency based on performance and confidence
+            if win_rate >= 0.6 and confidence >= 0.5:
+                leniency = 2  # Strong performance + confident = 2 ranks better
+            elif win_rate >= 0.5 or confidence >= 0.6:
+                leniency = 1  # Good performance OR confident = 1 rank better
+            else:
+                leniency = 1  # Default junior leniency = 1 rank better
+            
+            # Apply leniency (lower number = better rank)
+            adjusted_prediction = max(0, prediction - leniency)
+            
+            # Don't predict worse than current rank for juniors
+            current_rank = player_data.get('ranking') or player_data.get('current_ranking')
+            current_rank_encoded = rank_to_int.get(current_rank, prediction)
+            if adjusted_prediction > current_rank_encoded:
+                adjusted_prediction = current_rank_encoded
+            
+            if adjusted_prediction != original_prediction:
+                original_rank_name = int_to_rank.get(original_prediction, "Unknown")
+                adjusted_rank_name = int_to_rank.get(adjusted_prediction, "Unknown")
+                st.info(f"🎯 Junior leniency: {original_rank_name} → {adjusted_rank_name} (win rate: {win_rate:.1%}, confidence: {confidence:.1%})")
+            
+            prediction = adjusted_prediction
 
         # Convert prediction back to rank label
         predicted_rank = int_to_rank.get(prediction, "Unknown")
@@ -159,19 +232,26 @@ def predict_next_rank(player_data, model, feature_cols, category_encoder, rank_t
 
     except Exception as e:
         st.error(f"Error making prediction: {e}")
+        import traceback
+        st.error(traceback.format_exc())
         return None
 
 def main():
     st.set_page_config(page_title="TT KlassementPredictor", page_icon="🏓", layout="wide")
-    
+
     st.title("TT KlassementPredictor")
     st.markdown("Voorspel je klassment op basis van je kaart")
-    
-    # Load model and encoders
-    model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order = load_model_and_encoders()
 
-    if None in [model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order]:
-        st.error("Failed to load model components. Please check the model files.")
+    # Load models and encoders
+    regular_model, regular_category_encoder, regular_feature_cols, regular_int_to_rank, regular_rank_to_int, regular_ranking_order, regular_scaler = load_regular_model_and_encoders()
+    filtered_model, filtered_category_encoder, filtered_feature_cols, filtered_int_to_rank, filtered_rank_to_int, filtered_ranking_order, filtered_scaler = load_filtered_model_and_encoders()
+
+    if None in [regular_model, regular_category_encoder, regular_feature_cols, regular_int_to_rank, regular_rank_to_int, regular_ranking_order]:
+        st.error("Failed to load regular model components. Please check the model files.")
+        return
+
+    if None in [filtered_model, filtered_category_encoder, filtered_feature_cols, filtered_int_to_rank, filtered_rank_to_int, filtered_ranking_order, filtered_scaler]:
+        st.error("Failed to load filtered model components. Please check the filtered model files.")
         return
     
     # Sidebar for input
@@ -231,6 +311,27 @@ def main():
                             st.metric("Season", player_data.get('season', 'Unknown'))
                             st.metric("Unique Index", player_data.get('unique_index', 'Unknown'))
                         
+                        # Choose model based on category
+                        category = player_data.get('category')
+                        if category in ["BEN", "PRE", "MIN", "CAD"]:
+                            model = filtered_model
+                            category_encoder = filtered_category_encoder
+                            feature_cols = filtered_feature_cols
+                            rank_to_int = filtered_rank_to_int
+                            int_to_rank = filtered_int_to_rank
+                            ranking_order = filtered_ranking_order
+                            scaler = filtered_scaler
+                            model_type = "filtered (youth categories)"
+                        else:
+                            model = regular_model
+                            category_encoder = regular_category_encoder
+                            feature_cols = regular_feature_cols
+                            rank_to_int = regular_rank_to_int
+                            int_to_rank = regular_int_to_rank
+                            ranking_order = regular_ranking_order
+                            scaler = regular_scaler  # Regular model now uses scaler too
+                            model_type = "regular (all categories)"
+
                         # Display performance data
                         st.subheader("KAART")
 
@@ -266,14 +367,33 @@ def main():
 
                         performance_df = pd.DataFrame(performance_data)
                         st.dataframe(performance_df, width='stretch')
-                        
+
                         # Make prediction
                         st.subheader("Voorspelling  Klassement")
 
-                        predicted_rank = predict_next_rank(player_data, model, feature_cols, category_encoder, rank_to_int, int_to_rank, ranking_order)
+                        predicted_rank = predict_next_rank(
+                            player_data, model, feature_cols, category_encoder, 
+                            rank_to_int, int_to_rank, ranking_order, scaler
+                        )
 
                         if predicted_rank:
-                            st.success(f"**Voorspelling volgend klassement:** {predicted_rank}")
+                            # Show prediction with visual emphasis
+                            col_pred1, col_pred2 = st.columns([2, 1])
+                            with col_pred1:
+                                st.success(f"**Voorspelling volgend klassement:** {predicted_rank}")
+                            with col_pred2:
+                                current_rank = player_data.get('ranking') or player_data.get('current_ranking')
+                                if current_rank != predicted_rank:
+                                    current_idx = rank_to_int.get(current_rank, 999)
+                                    predicted_idx = rank_to_int.get(predicted_rank, 999)
+                                    if predicted_idx < current_idx:
+                                        st.metric("Change", "↑ Improvement", delta=f"+{current_idx - predicted_idx}")
+                                    elif predicted_idx > current_idx:
+                                        st.metric("Change", "↓ Decline", delta=f"-{predicted_idx - current_idx}")
+                                    else:
+                                        st.metric("Change", "→ Same", delta="0")
+                            
+                            st.caption(f"Model: {model_type} | Category: {category}")
                         else:
                             st.error("Unable to make prediction. Please check the input data.")
                         

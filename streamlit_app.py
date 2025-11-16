@@ -2,10 +2,21 @@ import streamlit as st
 import pandas as pd
 import joblib
 import os
+import sys
+import requests
+from io import BytesIO
+
+# Add path to TT predictor directory for database_maker import
+sys.path.append("../../OneDrive/Documenten/TT predictor")
+
 from database_maker import get_data, get_province_for_club, get_club_name_for_club
 
 # Load saved model + encoders from ai folder
-model = joblib.load("ai/model.pkl")
+# Load model from Hugging Face
+model_url = "https://huggingface.co/zouteboom4/ai_prediction/resolve/main/model.pkl"
+response = requests.get(model_url)
+response.raise_for_status()
+model = joblib.load(BytesIO(response.content))
 category_encoder = joblib.load("ai/category_encoder.pkl")
 rank_to_int = joblib.load("ai/rank_to_int.pkl")
 int_to_rank = joblib.load("ai/int_to_rank.pkl")

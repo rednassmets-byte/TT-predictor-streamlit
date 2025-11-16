@@ -1,4 +1,40 @@
-*.pkl
-*.exe
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data files (keep small ones, exclude large CSVs if needed)
+# Uncomment if CSV files are too large for GitHub
+# *.csv
+
+# Exclude backup files
+*Backup.py
+appBackup.py
+
+# Keep model files - they're needed for deployment!
+# *.pkl files are included
+
+# Exclude test files
+test_*.pkl

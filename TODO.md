@@ -1,3 +1,2 @@
-- [x] Update imports in TT predictor/app.py to include huggingface_hub
-- [x] Modify load_model_and_encoders function to use hf_hub_download for remote model files
-- [x] Test the app to ensure models load correctly from Hugging Face
+- [x] Update ranking_order in train_model.py to consolidate A ranks into "A" and merge B0e into B0
+- [x] Retrain the model by running train_model.py
