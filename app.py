@@ -453,13 +453,7 @@ def main():
                             int_to_rank = regular_int_to_rank
                             ranking_order = regular_ranking_order
                             scaler = regular_scaler
-                            
-                            if current_rank not in filtered_eligible_ranks:
-                                model_type = f"regular (rank {current_rank} te hoog voor jeugdmodel)"
-                                st.info(f"ℹ️ Rank {current_rank} is te hoog (beter dan C4). Regular model wordt gebruikt voor betere nauwkeurigheid.")
-                            else:
-                                model_type = f"regular (rank {current_rank} niet in jeugdmodel)"
-                                st.info(f"ℹ️ Rank {current_rank} heeft te weinig trainingsdata in het jeugdmodel. Regular model wordt gebruikt.")
+                            model_type = "regular (all categories)"
                     else:
                         # Not a youth category, use regular model
                         model = regular_model
