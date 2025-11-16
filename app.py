@@ -380,23 +380,35 @@ def main():
                         )
 
                         if predicted_rank:
-                            # Show prediction with visual emphasis
-                            col_pred1, col_pred2 = st.columns([2, 1])
-                            with col_pred1:
-                                st.success(f"**Voorspelling volgend klassement:** {predicted_rank}")
-                            with col_pred2:
-                                current_rank = player_data.get('ranking') or player_data.get('current_ranking')
+                            # Show prediction
+                            current_rank = player_data.get('ranking') or player_data.get('current_ranking')
+                            
+                            # Display prediction with comparison
+                            col1, col2, col3 = st.columns([1, 1, 1])
+                            
+                            with col1:
+                                st.metric("Huidig Klassement", current_rank)
+                            
+                            with col2:
+                                st.metric("Voorspeld Klassement", predicted_rank)
+                            
+                            with col3:
+                                # Calculate rank change
                                 if current_rank != predicted_rank:
                                     current_idx = rank_to_int.get(current_rank, 999)
                                     predicted_idx = rank_to_int.get(predicted_rank, 999)
-                                    if predicted_idx < current_idx:
-                                        st.metric("Change", "↑ Improvement", delta=f"+{current_idx - predicted_idx}")
-                                    elif predicted_idx > current_idx:
-                                        st.metric("Change", "↓ Decline", delta=f"-{predicted_idx - current_idx}")
+                                    rank_diff = current_idx - predicted_idx
+                                    
+                                    if rank_diff > 0:
+                                        st.metric("Verandering", f"↑ {rank_diff} rank{'s' if rank_diff > 1 else ''}", delta=f"+{rank_diff}", delta_color="normal")
+                                    elif rank_diff < 0:
+                                        st.metric("Verandering", f"↓ {abs(rank_diff)} rank{'s' if abs(rank_diff) > 1 else ''}", delta=f"{rank_diff}", delta_color="inverse")
                                     else:
-                                        st.metric("Change", "→ Same", delta="0")
+                                        st.metric("Verandering", "Geen verandering", delta="0", delta_color="off")
+                                else:
+                                    st.metric("Verandering", "Geen verandering", delta="0", delta_color="off")
                             
-                            st.caption(f"Model: {model_type} | Category: {category}")
+                            st.caption(f"Model: {model_type} | Categorie: {category}")
                         else:
                             st.error("Unable to make prediction. Please check the input data.")
                         

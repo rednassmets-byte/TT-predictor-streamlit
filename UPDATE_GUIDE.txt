@@ -1,0 +1,55 @@
+=====================================
+HOW TO UPDATE YOUR STREAMLIT APP
+=====================================
+
+SUPER SIMPLE - 3 STEPS:
+
+1. Make your changes (edit app.py or any file)
+
+2. Run these 3 commands:
+   git add .
+   git commit -m "Your update description"
+   git push origin master
+
+3. Wait 1-2 minutes - Streamlit Cloud auto-updates!
+
+=====================================
+
+OR USE THE SCRIPT:
+
+Double-click: update_app.bat
+
+=====================================
+
+EXAMPLES:
+
+Update UI:
+  git add app.py
+  git commit -m "Improved layout"
+  git push origin master
+
+Update Models:
+  python train_model.py
+  git add *.pkl
+  git commit -m "Retrained models"
+  git push origin master
+
+Fix Bug:
+  git add .
+  git commit -m "Fixed prediction error"
+  git push origin master
+
+=====================================
+
+CHECK DEPLOYMENT:
+https://share.streamlit.io
+→ Your app → Manage app → Logs
+
+=====================================
+
+YOUR APP:
+https://tt-predictor-streamlit.streamlit.app
+
+=====================================
+
+THAT'S IT! 🚀
