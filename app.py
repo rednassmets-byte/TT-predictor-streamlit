@@ -57,49 +57,89 @@ def get_members_for_club_season(club, season):
 @st.cache_resource
 def load_regular_model_and_encoders():
     try:
-        # Try loading local files first (for improved model)
+        # Load V3 model files (improved - better at predicting changes)
         try:
-            category_encoder = joblib.load("category_encoder.pkl")
-            feature_cols = joblib.load("feature_cols.pkl")
-            int_to_rank = joblib.load("int_to_rank.pkl")
-            rank_to_int = joblib.load("rank_to_int.pkl")
-            ranking_order = joblib.load("ranking_order.pkl")
-            model = joblib.load("model.pkl")
-            scaler = joblib.load("scaler.pkl")
-            return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, scaler
-        except:
-            # Fallback to Hugging Face
-            repo_id = "zouteboom4/ai_prediction"
-            category_encoder = joblib.load(hf_hub_download(repo_id=repo_id, filename="category_encoder.pkl"))
-            feature_cols = joblib.load(hf_hub_download(repo_id=repo_id, filename="feature_cols.pkl"))
-            int_to_rank = joblib.load(hf_hub_download(repo_id=repo_id, filename="int_to_rank.pkl"))
-            rank_to_int = joblib.load(hf_hub_download(repo_id=repo_id, filename="rank_to_int.pkl"))
-            ranking_order = joblib.load(hf_hub_download(repo_id=repo_id, filename="ranking_order.pkl"))
-            model = joblib.load(hf_hub_download(repo_id=repo_id, filename="model.pkl"))
+            category_encoder = joblib.load("category_encoder_v3.pkl")
+            feature_cols = joblib.load("feature_cols_v3.pkl")
+            int_to_rank = joblib.load("int_to_rank_v3.pkl")
+            rank_to_int = joblib.load("rank_to_int_v3.pkl")
+            ranking_order = joblib.load("ranking_order_v3.pkl")
+            model = joblib.load("model_v3_improved.pkl")
             return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
+        except:
+            # Fallback to V2 model
+            try:
+                category_encoder = joblib.load("category_encoder_v2.pkl")
+                feature_cols = joblib.load("feature_cols_v2.pkl")
+                int_to_rank = joblib.load("int_to_rank_v2.pkl")
+                rank_to_int = joblib.load("rank_to_int_v2.pkl")
+                ranking_order = joblib.load("ranking_order_v2.pkl")
+                model = joblib.load("model_v2.pkl")
+                return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
+            except:
+                # Fallback to original model
+                try:
+                    category_encoder = joblib.load("category_encoder.pkl")
+                    feature_cols = joblib.load("feature_cols.pkl")
+                    int_to_rank = joblib.load("int_to_rank.pkl")
+                    rank_to_int = joblib.load("rank_to_int.pkl")
+                    ranking_order = joblib.load("ranking_order.pkl")
+                    model = joblib.load("model.pkl")
+                    scaler = joblib.load("scaler.pkl")
+                    return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, scaler
+                except:
+                    # Final fallback to Hugging Face
+                    repo_id = "zouteboom4/ai_prediction"
+                    category_encoder = joblib.load(hf_hub_download(repo_id=repo_id, filename="category_encoder.pkl"))
+                    feature_cols = joblib.load(hf_hub_download(repo_id=repo_id, filename="feature_cols.pkl"))
+                    int_to_rank = joblib.load(hf_hub_download(repo_id=repo_id, filename="int_to_rank.pkl"))
+                    rank_to_int = joblib.load(hf_hub_download(repo_id=repo_id, filename="rank_to_int.pkl"))
+                    ranking_order = joblib.load(hf_hub_download(repo_id=repo_id, filename="ranking_order.pkl"))
+                    model = joblib.load(hf_hub_download(repo_id=repo_id, filename="model.pkl"))
+                    return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
     except Exception as e:
         st.error(f"Error loading regular model files: {e}")
         return None, None, None, None, None, None, None
 
 @st.cache_resource
 def load_filtered_model_and_encoders():
+    """Load the V3 filtered model for youth categories (BEN/PRE/MIN/CAD)"""
     try:
-        # Load local filtered model files
-        category_encoder = joblib.load("category_encoder_filtered.pkl")
-        feature_cols = joblib.load("feature_cols_filtered.pkl")
-        int_to_rank = joblib.load("int_to_rank_filtered.pkl")
-        rank_to_int = joblib.load("rank_to_int_filtered.pkl")
-        ranking_order = joblib.load("ranking_order_filtered.pkl")
-        model = joblib.load("model_filtered.pkl")
-        scaler = joblib.load("scaler_filtered.pkl")
-
-        return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, scaler
+        # Load V3 filtered model files (improved for youth)
+        try:
+            category_encoder = joblib.load("category_encoder_filtered_v3.pkl")
+            feature_cols = joblib.load("feature_cols_filtered_v3.pkl")
+            int_to_rank = joblib.load("int_to_rank_filtered_v3.pkl")
+            rank_to_int = joblib.load("rank_to_int_filtered_v3.pkl")
+            ranking_order = joblib.load("ranking_order_filtered_v3.pkl")
+            model = joblib.load("model_filtered_v3_improved.pkl")
+            return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
+        except:
+            # Fallback to V2 filtered model
+            try:
+                category_encoder = joblib.load("category_encoder_filtered_v2.pkl")
+                feature_cols = joblib.load("feature_cols_filtered_v2.pkl")
+                int_to_rank = joblib.load("int_to_rank_filtered_v2.pkl")
+                rank_to_int = joblib.load("rank_to_int_filtered_v2.pkl")
+                ranking_order = joblib.load("ranking_order_filtered_v2.pkl")
+                model = joblib.load("model_filtered_v2.pkl")
+                return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
+            except:
+                # Fallback to original filtered model
+                category_encoder = joblib.load("category_encoder_filtered.pkl")
+                feature_cols = joblib.load("feature_cols_filtered.pkl")
+                int_to_rank = joblib.load("int_to_rank_filtered.pkl")
+                rank_to_int = joblib.load("rank_to_int_filtered.pkl")
+                ranking_order = joblib.load("ranking_order_filtered.pkl")
+                model = joblib.load("model_filtered.pkl")
+                scaler = joblib.load("scaler_filtered.pkl")
+                return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, scaler
     except Exception as e:
         st.error(f"Error loading filtered model files: {e}")
         return None, None, None, None, None, None, None
 
 def prepare_features(player_data, feature_cols, category_encoder, rank_to_int, ranking_order, scaler=None):
-    """Prepare features for model prediction with advanced feature engineering"""
+    """Prepare features for V3 model prediction (improved features)"""
     try:
         if not isinstance(player_data, dict):
             st.error("Player data is not a dictionary")
@@ -118,40 +158,145 @@ def prepare_features(player_data, feature_cols, category_encoder, rank_to_int, r
         current_rank_encoded = rank_to_int.get(current_rank, -1)
         category_encoded = category_encoder.transform([category])[0] if category else -1
 
-        # Create feature dictionary
+        # Calculate overall performance
+        total_wins = sum(kaart.get(rank, [0, 0])[0] for rank in ranking_order)
+        total_losses = sum(kaart.get(rank, [0, 0])[1] for rank in ranking_order)
+        total_matches = total_wins + total_losses
+        win_rate = total_wins / total_matches if total_matches > 0 else 0.5
+        
+        # Calculate nearby_win_rate (performance at your level - within 3 ranks)
+        nearby_wins = 0
+        nearby_losses = 0
+        for rank in ranking_order:
+            rank_idx = rank_to_int.get(rank, 999)
+            if abs(rank_idx - current_rank_encoded) <= 3:
+                wins, losses = kaart.get(rank, [0, 0])
+                nearby_wins += wins
+                nearby_losses += losses
+        nearby_total = nearby_wins + nearby_losses
+        nearby_win_rate = nearby_wins / nearby_total if nearby_total > 0 else 0.5
+        
+        # Calculate vs_better_win_rate (performance against better players)
+        better_wins = 0
+        better_losses = 0
+        for rank in ranking_order:
+            rank_idx = rank_to_int.get(rank, 999)
+            if rank_idx < current_rank_encoded:  # Better rank (lower index)
+                wins, losses = kaart.get(rank, [0, 0])
+                better_wins += wins
+                better_losses += losses
+        better_total = better_wins + better_losses
+        vs_better_win_rate = better_wins / better_total if better_total > 0 else 0
+        
+        # Calculate vs_worse_win_rate (performance against worse players)
+        worse_wins = 0
+        worse_losses = 0
+        for rank in ranking_order:
+            rank_idx = rank_to_int.get(rank, 999)
+            if rank_idx > current_rank_encoded:  # Worse rank (higher index)
+                wins, losses = kaart.get(rank, [0, 0])
+                worse_wins += wins
+                worse_losses += losses
+        worse_total = worse_wins + worse_losses
+        vs_worse_win_rate = worse_wins / worse_total if worse_total > 0 else 0
+        
+        # Additional features for enhanced model
+        win_loss_ratio = total_wins / total_losses if total_losses > 0 else total_wins
+        performance_consistency = nearby_win_rate * np.log1p(total_matches)
+        level_dominance = (nearby_win_rate - 0.5) * 2  # Scale -1 to 1
+        
+        # V3 NEW FEATURES - Improved prediction of changes
+        win_rate_capped = np.clip(win_rate, 0.1, 0.9)
+        nearby_win_rate_capped = np.clip(nearby_win_rate, 0.1, 0.9)
+        
+        improvement_signal = (
+            max(0, nearby_win_rate - 0.6) * 2 +
+            vs_better_win_rate * 1.5 +
+            max(0, vs_worse_win_rate - 0.7)
+        )
+        
+        decline_signal = (
+            max(0, 0.4 - nearby_win_rate) * 2 +
+            max(0, 0.5 - vs_worse_win_rate) * 1.5
+        )
+        
+        is_junior = 1 if category in ['JUN', 'J19', 'J21'] else 0
+        junior_volatility = is_junior * improvement_signal
+        in_de_zone = 1 if current_rank_encoded in [9, 10, 11, 12, 13, 14, 15, 16] else 0
+        match_reliability = np.tanh(total_matches / 30)
+        reliable_performance = nearby_win_rate_capped * match_reliability
+        is_low_rank = 1 if current_rank_encoded >= 13 else 0
+        is_mid_rank = 1 if 9 <= current_rank_encoded < 13 else 0
+        
+        # Youth-specific features (for filtered model)
+        is_unranked = 1 if current_rank == 'NG' else 0
+        is_entry_rank = 1 if current_rank == 'E6' else 0
+        breakthrough_signal = (
+            max(0, win_rate - 0.6) * 2 +
+            vs_better_win_rate * 2 +
+            max(0, nearby_win_rate - 0.7) * 1.5
+        )
+        activity_volatility = np.tanh(total_matches / 50) * win_rate
+        poor_performer_signal = (
+            max(0, 0.4 - win_rate) * 2 +
+            max(0, 0.3 - nearby_win_rate) * 1.5
+        )
+        is_excellent = 1 if (win_rate > 0.7 and total_matches >= 20) else 0
+        is_youngest = 1 if category in ['MIN', 'PRE'] else 0
+        is_oldest = 1 if category in ['BEN', 'CAD'] else 0
+        
+        # Ranked opponent ratio
+        ng_matches = kaart.get('NG', [0, 0])
+        ng_total = ng_matches[0] + ng_matches[1]
+        ranked_matches = total_matches - ng_total
+        ranked_opponent_ratio = ranked_matches / total_matches if total_matches > 0 else 0
+        
+        ng_win_rate = win_rate if current_rank == 'NG' else 0
+        ng_has_many_matches = 1 if (current_rank == 'NG' and total_matches >= 20) else 0
+        e6_ready_to_advance = 1 if (current_rank == 'E6' and nearby_win_rate > 0.6 and total_matches >= 15) else 0
+        youth_match_reliability = np.tanh(total_matches / 40)
+        
+        # Create feature dictionary with all possible features
         features = {
             'current_rank_encoded': current_rank_encoded,
-            'category_encoded': category_encoded
+            'category_encoded': category_encoded,
+            'win_rate': win_rate,
+            'nearby_win_rate': nearby_win_rate,
+            'vs_better_win_rate': vs_better_win_rate,
+            'vs_worse_win_rate': vs_worse_win_rate,
+            'total_matches': total_matches,
+            'match_volume': np.log1p(total_matches),
+            'performance_score': (win_rate * 0.4 + nearby_win_rate * 0.4 + vs_better_win_rate * 0.2),
+            'win_loss_ratio': win_loss_ratio,
+            'performance_consistency': performance_consistency,
+            'level_dominance': level_dominance,
+            # V3 features
+            'win_rate_capped': win_rate_capped,
+            'nearby_win_rate_capped': nearby_win_rate_capped,
+            'improvement_signal': improvement_signal,
+            'decline_signal': decline_signal,
+            'is_junior': is_junior,
+            'junior_volatility': junior_volatility,
+            'in_de_zone': in_de_zone,
+            'match_reliability': match_reliability,
+            'reliable_performance': reliable_performance,
+            'is_low_rank': is_low_rank,
+            'is_mid_rank': is_mid_rank,
+            # Youth-specific features (filtered model)
+            'is_unranked': is_unranked,
+            'is_entry_rank': is_entry_rank,
+            'breakthrough_signal': breakthrough_signal,
+            'activity_volatility': activity_volatility,
+            'poor_performer_signal': poor_performer_signal,
+            'is_excellent': is_excellent,
+            'is_youngest': is_youngest,
+            'is_oldest': is_oldest,
+            'ranked_opponent_ratio': ranked_opponent_ratio,
+            'ng_win_rate': ng_win_rate,
+            'ng_has_many_matches': ng_has_many_matches,
+            'e6_ready_to_advance': e6_ready_to_advance,
+            'youth_match_reliability': youth_match_reliability
         }
-
-        # Add win/loss data from kaart and calculate totals/win rates
-        total_wins = 0
-        total_losses = 0
-        
-        for rank in ranking_order:
-            wins = kaart.get(rank, [0, 0])[0]
-            losses = kaart.get(rank, [0, 0])[1]
-            total = wins + losses
-            
-            features[f"{rank}_wins"] = wins
-            features[f"{rank}_losses"] = losses
-            features[f"{rank}_total"] = total
-            features[f"{rank}_win_rate"] = wins / total if total > 0 else 0
-            
-            total_wins += wins
-            total_losses += losses
-
-        # Add advanced features
-        total_matches = total_wins + total_losses
-        overall_win_rate = total_wins / total_matches if total_matches > 0 else 0
-        
-        features['total_wins'] = total_wins
-        features['total_losses'] = total_losses
-        features['total_matches'] = total_matches
-        features['overall_win_rate'] = overall_win_rate
-        features['performance_consistency'] = overall_win_rate * np.log1p(total_matches)
-        features['recent_performance'] = overall_win_rate * min(total_matches / 10, 1)
-        features['rank_progression_potential'] = overall_win_rate * (1 - current_rank_encoded / len(ranking_order))
 
         # Create DataFrame with all feature columns
         feature_df = pd.DataFrame([features])
@@ -179,8 +324,62 @@ def prepare_features(player_data, feature_cols, category_encoder, rank_to_int, r
         st.error(traceback.format_exc())
         return None
 
+def should_boost_for_big_jump(player_data, current_rank, predicted_rank, rank_to_int):
+    """
+    Check if prediction should be boosted for big improvement
+    Only boosts if strong signals present AND model already predicts improvement
+    """
+    current_idx = rank_to_int.get(current_rank, 999)
+    predicted_idx = rank_to_int.get(predicted_rank, 999)
+    
+    # Model must already predict improvement
+    if predicted_idx >= current_idx:
+        return False
+    
+    # Extract features
+    kaart = player_data.get('kaart', {})
+    
+    # Calculate win rate
+    total_wins = sum(kaart.get(rank, [0, 0])[0] for rank in rank_to_int.keys())
+    total_losses = sum(kaart.get(rank, [0, 0])[1] for rank in rank_to_int.keys())
+    total_matches = total_wins + total_losses
+    win_rate = total_wins / total_matches if total_matches > 0 else 0
+    
+    # Calculate nearby win rate
+    nearby_wins = 0
+    nearby_losses = 0
+    for rank, rank_idx in rank_to_int.items():
+        if abs(rank_idx - current_idx) <= 3:
+            wins, losses = kaart.get(rank, [0, 0])
+            nearby_wins += wins
+            nearby_losses += losses
+    nearby_total = nearby_wins + nearby_losses
+    nearby_win_rate = nearby_wins / nearby_total if nearby_total > 0 else 0
+    
+    # Calculate vs better win rate
+    better_wins = 0
+    better_losses = 0
+    for rank, rank_idx in rank_to_int.items():
+        if rank_idx < current_idx:
+            wins, losses = kaart.get(rank, [0, 0])
+            better_wins += wins
+            better_losses += losses
+    better_total = better_wins + better_losses
+    vs_better_win_rate = better_wins / better_total if better_total > 0 else 0
+    
+    # Check for strong signals
+    strong_overall = win_rate > 0.70
+    beating_better = vs_better_win_rate > 0.35
+    dominating_level = nearby_win_rate > 0.75
+    enough_matches = total_matches >= 20
+    
+    # Need at least 3 of 4 strong signals
+    signals = sum([strong_overall, beating_better, dominating_level, enough_matches])
+    
+    return signals >= 3
+
 def predict_next_rank(player_data, model, feature_cols, category_encoder, rank_to_int, int_to_rank, ranking_order, scaler=None):
-    """Predict the next rank for a player"""
+    """Predict the next rank for a player with optional boost for big improvements"""
     try:
         # Prepare features
         features = prepare_features(player_data, feature_cols, category_encoder, rank_to_int, ranking_order, scaler)
@@ -197,8 +396,20 @@ def predict_next_rank(player_data, model, feature_cols, category_encoder, rank_t
 
         # Convert prediction back to rank label
         predicted_rank = int_to_rank.get(prediction, "Unknown")
+        
+        # Get current rank
+        current_rank = player_data.get('ranking') or player_data.get('current_ranking')
+        
+        # Check if should boost for big improvement
+        was_boosted = False
+        if current_rank and should_boost_for_big_jump(player_data, current_rank, predicted_rank, rank_to_int):
+            # Boost by 1 additional rank
+            boosted_idx = max(0, prediction - 1)
+            predicted_rank = int_to_rank.get(boosted_idx, predicted_rank)
+            was_boosted = True
+            confidence = confidence * 0.9  # Slightly lower confidence for boosted predictions
 
-        return predicted_rank, confidence
+        return predicted_rank, confidence, was_boosted
 
     except Exception as e:
         st.error(f"Error making prediction: {e}")
@@ -307,7 +518,7 @@ def main():
     # Model accuracy note
     st.info(" Model Accuracy: ~85% (trained on Antwerpen data, seasons 15-26)")
 
-    # Load models and encoders
+    # Load models and encoders (ORIGINAL SETUP - BEST PERFORMANCE)
     regular_model, regular_category_encoder, regular_feature_cols, regular_int_to_rank, regular_rank_to_int, regular_ranking_order, regular_scaler = load_regular_model_and_encoders()
     filtered_model, filtered_category_encoder, filtered_feature_cols, filtered_int_to_rank, filtered_rank_to_int, filtered_ranking_order, filtered_scaler = load_filtered_model_and_encoders()
 
@@ -315,7 +526,7 @@ def main():
         st.error("Failed to load regular model components. Please check the model files.")
         return
 
-    if None in [filtered_model, filtered_category_encoder, filtered_feature_cols, filtered_int_to_rank, filtered_rank_to_int, filtered_ranking_order, filtered_scaler]:
+    if None in [filtered_model, filtered_category_encoder, filtered_feature_cols, filtered_int_to_rank, filtered_rank_to_int, filtered_ranking_order]:
         st.error("Failed to load filtered model components. Please check the filtered model files.")
         return
     
@@ -422,40 +633,26 @@ def main():
                         st.metric("Seizoen", player_data.get('season', 'Unknown'))
                         st.metric("Unique Index", player_data.get('unique_index', 'Unknown'))
                     
-                    # Choose model based on category and rank
+                    # Choose model based on category
                     category = player_data.get('category')
                     current_rank = player_data.get('ranking') or player_data.get('current_ranking')
                     
-                    # Define ranks eligible for filtered model (C4 and lower)
-                    filtered_eligible_ranks = ['C4', 'C6', 'D0', 'D2', 'D4', 'D6', 'E0', 'E2', 'E4', 'E6', 'NG']
+                    # Model selection logic (ORIGINAL - BEST PERFORMANCE):
+                    # 1. BEN/PRE/MIN/CAD categories -> use filtered model
+                    # 2. All other categories (including JUN, J19) -> use regular model
                     
-                    # Check if filtered model should be used
-                    use_filtered = False
                     if category in ["BEN", "PRE", "MIN", "CAD"]:
-                        # Check if rank is C4 or lower AND exists in filtered model
-                        if current_rank in filtered_eligible_ranks and current_rank in filtered_rank_to_int:
-                            # Use filtered model
-                            use_filtered = True
-                            model = filtered_model
-                            category_encoder = filtered_category_encoder
-                            feature_cols = filtered_feature_cols
-                            rank_to_int = filtered_rank_to_int
-                            int_to_rank = filtered_int_to_rank
-                            ranking_order = filtered_ranking_order
-                            scaler = filtered_scaler
-                            model_type = "filtered (youth categories)"
-                        else:
-                            # Rank is too high (better than C4) or not in filtered model, use regular
-                            model = regular_model
-                            category_encoder = regular_category_encoder
-                            feature_cols = regular_feature_cols
-                            rank_to_int = regular_rank_to_int
-                            int_to_rank = regular_int_to_rank
-                            ranking_order = regular_ranking_order
-                            scaler = regular_scaler
-                            model_type = "regular (all categories)"
+                        # Use filtered model for youth categories
+                        model = filtered_model
+                        category_encoder = filtered_category_encoder
+                        feature_cols = filtered_feature_cols
+                        rank_to_int = filtered_rank_to_int
+                        int_to_rank = filtered_int_to_rank
+                        ranking_order = filtered_ranking_order
+                        scaler = filtered_scaler
+                        model_type = "Filtered (youth categories)"
                     else:
-                        # Not a youth category, use regular model
+                        # Use regular model for all other categories (including JUN, J19)
                         model = regular_model
                         category_encoder = regular_category_encoder
                         feature_cols = regular_feature_cols
@@ -463,7 +660,7 @@ def main():
                         int_to_rank = regular_int_to_rank
                         ranking_order = regular_ranking_order
                         scaler = regular_scaler
-                        model_type = "regular (all categories)"
+                        model_type = "Regular (all categories)"
 
                     # Display performance data
                     st.subheader("KAART")
@@ -510,63 +707,44 @@ def main():
                     # Make prediction
                     st.subheader("Voorspelling  Klassement")
 
-                    # If using filtered model, also show regular model prediction
-                    if model_type == "filtered (youth categories)":
-                        # Get regular model prediction
-                        regular_result = predict_next_rank(
-                            player_data, regular_model, regular_feature_cols, regular_category_encoder, 
-                            regular_rank_to_int, regular_int_to_rank, regular_ranking_order, regular_scaler
-                        )
+                    # Make prediction with selected model
+                    result = predict_next_rank(
+                        player_data, model, feature_cols, category_encoder, 
+                        rank_to_int, int_to_rank, ranking_order, scaler
+                    )
+                    
+                    if result:
+                        predicted_rank, confidence, was_boosted = result
+                        current_rank = player_data.get('ranking') or player_data.get('current_ranking')
                         
-                        # Get filtered model prediction
-                        filtered_result = predict_next_rank(
-                            player_data, model, feature_cols, category_encoder, 
-                            rank_to_int, int_to_rank, ranking_order, scaler
-                        )
+                        # Get comparison indicators
+                        emoji, arrow, color_type, message = get_rank_comparison(current_rank, predicted_rank, rank_to_int)
                         
-                        if regular_result and filtered_result:
-                            regular_predicted_rank, regular_confidence = regular_result
-                            filtered_predicted_rank, filtered_confidence = filtered_result
-                            current_rank = player_data.get('ranking') or player_data.get('current_ranking')
-                            
-                            # Display regular model (smaller)
-                            st.markdown(f"**Senior Model:** {regular_predicted_rank} (Confidence: {regular_confidence:.1f}%)")
-                            
-                            # Get comparison indicators
-                            emoji, arrow, color_type, message = get_rank_comparison(current_rank, filtered_predicted_rank, rank_to_int)
-                            
-                            # Display final conclusion (bigger)
-                            st.markdown("---")
-                            st.markdown(f"** Voorspelling Klassement: **")
-                            st.markdown(f"# {filtered_predicted_rank}")
-                            st.caption(f"Jeugd model | Confidence: {filtered_confidence:.1f}% | {message}")
-                            
-                            # Set the filtered prediction as the final one
-                            predicted_rank = filtered_predicted_rank
+                        # Display prediction
+                        st.markdown(f"# {predicted_rank}")
+                        
+                        # Show if prediction was boosted
+                       
+                        
+                        # Show confidence with interpretation
+                        if confidence >= 70:
+                            confidence_label = "Zeer zeker"
+                            confidence_color = "🟢"
+                        elif confidence >= 50:
+                            confidence_label = "Redelijk zeker"
+                            confidence_color = "🟡"
                         else:
-                            st.error("Unable to make prediction. Please check the input data.")
-                            predicted_rank = None
+                            confidence_label = "Onzeker"
+                            confidence_color = "🟠"
+                        
+                        st.caption(f"{confidence_color} Confidence: {confidence:.1f}% ({confidence_label}) | {message}")
+                        
+                        # Warning for low confidence
+                        if confidence < 30:
+                            st.info("Lage zekerheid - voorspelling kan variëren. Meer wedstrijden spelen verhoogt de nauwkeurigheid.")
                     else:
-                        # Regular model only
-                        result = predict_next_rank(
-                            player_data, model, feature_cols, category_encoder, 
-                            rank_to_int, int_to_rank, ranking_order, scaler
-                        )
-
-                        if result:
-                            predicted_rank, confidence = result
-                            current_rank = player_data.get('ranking') or player_data.get('current_ranking')
-                            
-                            # Get comparison indicators
-                            emoji, arrow, color_type, message = get_rank_comparison(current_rank, predicted_rank, rank_to_int)
-                            
-                            # Display prediction
-                            st.markdown(f"** Voorspelling Klassement: **")
-                            st.markdown(f"# {predicted_rank}")
-                            st.caption(f"Confidence: {confidence:.1f}% | {message}")
-                        else:
-                            st.error("Unable to make prediction. Please check the input data.")
-                            predicted_rank = None
+                        st.error("Unable to make prediction. Please check the input data.")
+                        predicted_rank = None
                     
                     # Calculate performance score (1-100)
                     st.subheader("Performance Score")
