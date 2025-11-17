@@ -59,18 +59,14 @@ def load_regular_model_and_encoders():
     try:
         # Load V3 model files (improved - better at predicting changes)
         try:
-            st.info("🔄 Loading V3 models...")
             category_encoder = joblib.load("category_encoder_v3.pkl")
             feature_cols = joblib.load("feature_cols_v3.pkl")
             int_to_rank = joblib.load("int_to_rank_v3.pkl")
             rank_to_int = joblib.load("rank_to_int_v3.pkl")
             ranking_order = joblib.load("ranking_order_v3.pkl")
             model = joblib.load("model_v3_improved.pkl")
-            st.success("✅ V3 models loaded successfully!")
             return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
-        except Exception as e:
-            st.warning(f"⚠️ V3 models not available: {str(e)[:100]}")
-            st.info("🔄 Trying V2 fallback...")
+        except:
             # Fallback to V2 model
             try:
                 category_encoder = joblib.load("category_encoder_v2.pkl")
@@ -111,18 +107,14 @@ def load_filtered_model_and_encoders():
     try:
         # Load V3 filtered model files (improved for youth)
         try:
-            st.info("🔄 Loading V3 FILTERED models...")
             category_encoder = joblib.load("category_encoder_filtered_v3.pkl")
             feature_cols = joblib.load("feature_cols_filtered_v3.pkl")
             int_to_rank = joblib.load("int_to_rank_filtered_v3.pkl")
             rank_to_int = joblib.load("rank_to_int_filtered_v3.pkl")
             ranking_order = joblib.load("ranking_order_filtered_v3.pkl")
             model = joblib.load("model_filtered_v3_improved.pkl")
-            st.success("✅ V3 FILTERED models loaded successfully!")
             return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
-        except Exception as e:
-            st.error(f"❌ V3 FILTERED models failed: {str(e)[:200]}")
-            st.info("🔄 Trying V2 filtered fallback...")
+        except:
             # Fallback to V2 filtered model
             try:
                 category_encoder = joblib.load("category_encoder_filtered_v2.pkl")
@@ -395,13 +387,6 @@ def predict_next_rank(player_data, model, feature_cols, category_encoder, rank_t
         if features is None:
             return None
 
-        # Debug: Show which model is loaded and feature values
-        st.write("🔍 Debug Info:")
-        st.write(f"- Model type: {type(model).__name__}")
-        st.write(f"- Feature columns: {len(feature_cols)}")
-        st.write(f"- Scaler: {'Yes' if scaler is not None else 'No'}")
-        st.write(f"- Feature sample (first 5): {features.iloc[0, :5].to_dict()}")
-        
         # Make prediction
         prediction = model.predict(features)[0]
         
@@ -411,9 +396,6 @@ def predict_next_rank(player_data, model, feature_cols, category_encoder, rank_t
 
         # Convert prediction back to rank label
         predicted_rank = int_to_rank.get(prediction, "Unknown")
-        
-        # Debug: Show prediction details
-        st.write(f"Debug - Prediction index: {prediction}, Rank: {predicted_rank}")
         
         # Get current rank
         current_rank = player_data.get('ranking') or player_data.get('current_ranking')
