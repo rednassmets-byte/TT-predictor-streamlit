@@ -387,6 +387,9 @@ def predict_next_rank(player_data, model, feature_cols, category_encoder, rank_t
         if features is None:
             return None
 
+        # Debug: Show feature values
+        st.write("Debug - Feature sample:", features.iloc[0, :5].to_dict())
+        
         # Make prediction
         prediction = model.predict(features)[0]
         
@@ -396,6 +399,9 @@ def predict_next_rank(player_data, model, feature_cols, category_encoder, rank_t
 
         # Convert prediction back to rank label
         predicted_rank = int_to_rank.get(prediction, "Unknown")
+        
+        # Debug: Show prediction details
+        st.write(f"Debug - Prediction index: {prediction}, Rank: {predicted_rank}")
         
         # Get current rank
         current_rank = player_data.get('ranking') or player_data.get('current_ranking')
