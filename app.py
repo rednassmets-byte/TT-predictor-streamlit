@@ -431,6 +431,77 @@ def create_win_loss_chart(kaart_data, ranking_order):
     
     return fig
 
+def create_rank_progression_chart(club_code, player_name, current_season, rank_to_int, predicted_rank=None):
+    """Create a line chart showing rank progression over seasons"""
+    seasons = []
+    ranks = []
+    rank_values = []
+    
+    # Fetch data for last 5 seasons (or available seasons)
+    for season in range(max(15, current_season - 4), current_season + 1):
+        try:
+            player_data = get_data(club=club_code, name=player_name, season=season)
+            if player_data and player_data.get('current_ranking'):
+                rank = player_data['current_ranking']
+                seasons.append(f"{season-1}-{season}")
+                ranks.append(rank)
+                rank_values.append(rank_to_int.get(rank, 999))
+        except:
+            continue
+    
+    if len(seasons) < 2:
+        return None
+    
+    # Create line chart
+    fig = go.Figure()
+    
+    # Historical data
+    fig.add_trace(go.Scatter(
+        x=seasons,
+        y=rank_values,
+        mode='lines+markers+text',
+        text=ranks,
+        textposition='top center',
+        marker=dict(size=12, color='#00cc66'),
+        line=dict(width=3, color='#00cc66'),
+        name='Actual Rank'
+    ))
+    
+    # Add predicted rank for next season if current season is 26
+    if current_season == 26 and predicted_rank:
+        predicted_season = f"26-27"
+        predicted_value = rank_to_int.get(predicted_rank, 999)
+        
+        # Add dashed line from last actual to predicted
+        fig.add_trace(go.Scatter(
+            x=[seasons[-1], predicted_season],
+            y=[rank_values[-1], predicted_value],
+            mode='lines+markers+text',
+            text=['', predicted_rank],
+            textposition='top center',
+            marker=dict(size=12, color='#ff9900', symbol='diamond'),
+            line=dict(width=3, color='#ff9900', dash='dash'),
+            name='Predicted'
+        ))
+    
+    fig.update_layout(
+        title='Rank Progression Over Seasons',
+        xaxis_title='Season',
+        yaxis_title='Rank',
+        yaxis=dict(
+            autorange='reversed',  # Better ranks (lower values) at top
+            tickmode='array',
+            tickvals=list(range(len(rank_to_int))),
+            ticktext=[k for k, v in sorted(rank_to_int.items(), key=lambda x: x[1])]
+        ),
+        showlegend=True if (current_season == 26 and predicted_rank) else False,
+        height=400,
+        margin=dict(l=20, r=20, t=40, b=20),
+        hovermode='x unified'
+    )
+    
+    return fig
+
 def main():
     st.set_page_config(page_title="TT KlassementPredictor", page_icon="🏓", layout="wide")
     
@@ -653,17 +724,28 @@ def main():
                         fig = create_win_loss_chart(player_data.get('kaart', {}), ranking_order)
                         st.plotly_chart(fig, use_container_width=True)
 
-                    # Make prediction
-                    st.subheader("Voorspelling  Klassement")
-
-                    # Make prediction with selected model
+                    # Make prediction first (needed for progression chart)
                     result = predict_next_rank(
                         player_data, model, feature_cols, category_encoder, 
                         rank_to_int, int_to_rank, ranking_order, scaler
                     )
                     
+                    predicted_rank = None
                     if result:
                         predicted_rank, confidence, was_boosted = result
+                    
+                    # Display rank progression chart with prediction
+                    st.subheader("Rank Progression")
+                    progression_fig = create_rank_progression_chart(club_code, player_name, season, rank_to_int, predicted_rank)
+                    if progression_fig:
+                        st.plotly_chart(progression_fig, use_container_width=True)
+                    else:
+                        st.info("Not enough historical data to show rank progression (need at least 2 seasons)")
+
+                    # Display prediction
+                    st.subheader("Voorspelling  Klassement")
+                    
+                    if result:
                         current_rank = player_data.get('ranking') or player_data.get('current_ranking')
                         
                         # Get comparison indicators
