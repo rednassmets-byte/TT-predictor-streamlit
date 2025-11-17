@@ -57,85 +57,34 @@ def get_members_for_club_season(club, season):
 @st.cache_resource
 def load_regular_model_and_encoders():
     try:
-        # Load V3 model files (improved - better at predicting changes)
-        try:
-            category_encoder = joblib.load("category_encoder_v3.pkl")
-            feature_cols = joblib.load("feature_cols_v3.pkl")
-            int_to_rank = joblib.load("int_to_rank_v3.pkl")
-            rank_to_int = joblib.load("rank_to_int_v3.pkl")
-            ranking_order = joblib.load("ranking_order_v3.pkl")
-            model = joblib.load("model_v3_improved.pkl")
-            return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
-        except:
-            # Fallback to V2 model
-            try:
-                category_encoder = joblib.load("category_encoder_v2.pkl")
-                feature_cols = joblib.load("feature_cols_v2.pkl")
-                int_to_rank = joblib.load("int_to_rank_v2.pkl")
-                rank_to_int = joblib.load("rank_to_int_v2.pkl")
-                ranking_order = joblib.load("ranking_order_v2.pkl")
-                model = joblib.load("model_v2.pkl")
-                return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
-            except:
-                # Fallback to original model
-                try:
-                    category_encoder = joblib.load("category_encoder.pkl")
-                    feature_cols = joblib.load("feature_cols.pkl")
-                    int_to_rank = joblib.load("int_to_rank.pkl")
-                    rank_to_int = joblib.load("rank_to_int.pkl")
-                    ranking_order = joblib.load("ranking_order.pkl")
-                    model = joblib.load("model.pkl")
-                    scaler = joblib.load("scaler.pkl")
-                    return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, scaler
-                except:
-                    # Final fallback to Hugging Face
-                    repo_id = "zouteboom4/ai_prediction"
-                    category_encoder = joblib.load(hf_hub_download(repo_id=repo_id, filename="category_encoder.pkl"))
-                    feature_cols = joblib.load(hf_hub_download(repo_id=repo_id, filename="feature_cols.pkl"))
-                    int_to_rank = joblib.load(hf_hub_download(repo_id=repo_id, filename="int_to_rank.pkl"))
-                    rank_to_int = joblib.load(hf_hub_download(repo_id=repo_id, filename="rank_to_int.pkl"))
-                    ranking_order = joblib.load(hf_hub_download(repo_id=repo_id, filename="ranking_order.pkl"))
-                    model = joblib.load(hf_hub_download(repo_id=repo_id, filename="model.pkl"))
-                    return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
+        # Load V3 model files (improved - better at predicting changes) - NO FALLBACKS
+        category_encoder = joblib.load("category_encoder_v3.pkl")
+        feature_cols = joblib.load("feature_cols_v3.pkl")
+        int_to_rank = joblib.load("int_to_rank_v3.pkl")
+        rank_to_int = joblib.load("rank_to_int_v3.pkl")
+        ranking_order = joblib.load("ranking_order_v3.pkl")
+        model = joblib.load("model_v3_improved.pkl")
+        return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
     except Exception as e:
-        st.error(f"Error loading regular model files: {e}")
+        st.error(f"❌ V3 Regular model not available: {str(e)}")
+        st.error("Please ensure all model files are uploaded to the repository.")
         return None, None, None, None, None, None, None
 
 @st.cache_resource
 def load_filtered_model_and_encoders():
     """Load the V3 filtered model for youth categories (BEN/PRE/MIN/CAD)"""
     try:
-        # Load V3 filtered model files (improved for youth)
-        try:
-            category_encoder = joblib.load("category_encoder_filtered_v3.pkl")
-            feature_cols = joblib.load("feature_cols_filtered_v3.pkl")
-            int_to_rank = joblib.load("int_to_rank_filtered_v3.pkl")
-            rank_to_int = joblib.load("rank_to_int_filtered_v3.pkl")
-            ranking_order = joblib.load("ranking_order_filtered_v3.pkl")
-            model = joblib.load("model_filtered_v3_improved.pkl")
-            return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
-        except:
-            # Fallback to V2 filtered model
-            try:
-                category_encoder = joblib.load("category_encoder_filtered_v2.pkl")
-                feature_cols = joblib.load("feature_cols_filtered_v2.pkl")
-                int_to_rank = joblib.load("int_to_rank_filtered_v2.pkl")
-                rank_to_int = joblib.load("rank_to_int_filtered_v2.pkl")
-                ranking_order = joblib.load("ranking_order_filtered_v2.pkl")
-                model = joblib.load("model_filtered_v2.pkl")
-                return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
-            except:
-                # Fallback to original filtered model
-                category_encoder = joblib.load("category_encoder_filtered.pkl")
-                feature_cols = joblib.load("feature_cols_filtered.pkl")
-                int_to_rank = joblib.load("int_to_rank_filtered.pkl")
-                rank_to_int = joblib.load("rank_to_int_filtered.pkl")
-                ranking_order = joblib.load("ranking_order_filtered.pkl")
-                model = joblib.load("model_filtered.pkl")
-                scaler = joblib.load("scaler_filtered.pkl")
-                return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, scaler
+        # Load V3 filtered model files (improved for youth) - NO FALLBACKS
+        category_encoder = joblib.load("category_encoder_filtered_v3.pkl")
+        feature_cols = joblib.load("feature_cols_filtered_v3.pkl")
+        int_to_rank = joblib.load("int_to_rank_filtered_v3.pkl")
+        rank_to_int = joblib.load("rank_to_int_filtered_v3.pkl")
+        ranking_order = joblib.load("ranking_order_filtered_v3.pkl")
+        model = joblib.load("model_filtered_v3_improved.pkl")
+        return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
     except Exception as e:
-        st.error(f"Error loading filtered model files: {e}")
+        st.error(f"❌ V3 Filtered model not available: {str(e)}")
+        st.error("Please ensure all model files are uploaded to the repository.")
         return None, None, None, None, None, None, None
 
 def prepare_features(player_data, feature_cols, category_encoder, rank_to_int, ranking_order, scaler=None):
