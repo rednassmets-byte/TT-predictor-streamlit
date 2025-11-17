@@ -111,14 +111,18 @@ def load_filtered_model_and_encoders():
     try:
         # Load V3 filtered model files (improved for youth)
         try:
+            st.info("🔄 Loading V3 FILTERED models...")
             category_encoder = joblib.load("category_encoder_filtered_v3.pkl")
             feature_cols = joblib.load("feature_cols_filtered_v3.pkl")
             int_to_rank = joblib.load("int_to_rank_filtered_v3.pkl")
             rank_to_int = joblib.load("rank_to_int_filtered_v3.pkl")
             ranking_order = joblib.load("ranking_order_filtered_v3.pkl")
             model = joblib.load("model_filtered_v3_improved.pkl")
+            st.success("✅ V3 FILTERED models loaded successfully!")
             return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
-        except:
+        except Exception as e:
+            st.error(f"❌ V3 FILTERED models failed: {str(e)[:200]}")
+            st.info("🔄 Trying V2 filtered fallback...")
             # Fallback to V2 filtered model
             try:
                 category_encoder = joblib.load("category_encoder_filtered_v2.pkl")
