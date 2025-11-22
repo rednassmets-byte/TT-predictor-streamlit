@@ -87,8 +87,61 @@ def load_filtered_model_and_encoders():
         st.error("Please ensure all model files are uploaded to the repository.")
         return None, None, None, None, None, None, None
 
-def prepare_features(player_data, feature_cols, category_encoder, rank_to_int, ranking_order, scaler=None):
-    """Prepare features for V3 model prediction (improved features)"""
+@st.cache_resource
+def load_special_cases_model():
+    """Load the V4 hybrid special cases model (for NG + big jumps with ELO)"""
+    try:
+        model = joblib.load("model_v4_special_cases.pkl")
+        feature_cols = joblib.load("feature_cols_v4_special.pkl")
+        category_encoder = joblib.load("category_encoder_v4_hybrid.pkl")
+        int_to_rank = joblib.load("int_to_rank_v4_hybrid.pkl")
+        rank_to_int = joblib.load("rank_to_int_v4_hybrid.pkl")
+        ranking_order = joblib.load("ranking_order_v4_hybrid.pkl")
+        return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order
+    except Exception as e:
+        # If special cases model not available, return None (will fall back to V3)
+        return None, None, None, None, None, None
+
+def is_special_case(player_data, rank_to_int):
+    """Check if player is a special case (NG or potential big jump)"""
+    current_rank = player_data.get('ranking') or player_data.get('current_ranking')
+    
+    # NG players are always special cases
+    if current_rank == 'NG':
+        return True
+    
+    # Check for potential big jump (strong performance indicators)
+    kaart = player_data.get('kaart', {})
+    total_wins = sum(kaart.get(rank, [0, 0])[0] for rank in rank_to_int.keys())
+    total_losses = sum(kaart.get(rank, [0, 0])[1] for rank in rank_to_int.keys())
+    total_matches = total_wins + total_losses
+    
+    if total_matches < 10:
+        return False
+    
+    win_rate = total_wins / total_matches
+    
+    # Calculate nearby win rate
+    current_idx = rank_to_int.get(current_rank, 999)
+    nearby_wins = 0
+    nearby_losses = 0
+    for rank, rank_idx in rank_to_int.items():
+        if abs(rank_idx - current_idx) <= 3:
+            wins, losses = kaart.get(rank, [0, 0])
+            nearby_wins += wins
+            nearby_losses += losses
+    nearby_total = nearby_wins + nearby_losses
+    nearby_win_rate = nearby_wins / nearby_total if nearby_total > 0 else 0
+    
+    # Strong performance = potential big jump
+    # High overall win rate AND dominating at their level
+    if win_rate > 0.70 and nearby_win_rate > 0.70 and total_matches >= 20:
+        return True
+    
+    return False
+
+def prepare_features(player_data, feature_cols, category_encoder, rank_to_int, ranking_order, scaler=None, include_elo=False):
+    """Prepare features for model prediction (V3 or V4 with ELO)"""
     try:
         if not isinstance(player_data, dict):
             st.error("Player data is not a dictionary")
@@ -102,10 +155,26 @@ def prepare_features(player_data, feature_cols, category_encoder, rank_to_int, r
 
         category = player_data.get('category')
         kaart = player_data.get('kaart', {})
+        elo = player_data.get('elo', 0)
 
         # Encode categorical variables
         current_rank_encoded = rank_to_int.get(current_rank, -1)
-        category_encoded = category_encoder.transform([category])[0] if category else -1
+        
+        # Handle category encoding with fallback for unseen categories
+        try:
+            category_encoded = category_encoder.transform([category])[0] if category else -1
+        except ValueError:
+            # Category not seen during training - use a default encoding
+            # Map youth categories to similar ones that exist in the model
+            category_mapping = {
+                'PRE': 'MIN',  # Map PRE to MIN (similar age group)
+                'BEN': 'CAD',  # Map BEN to CAD (similar age group)
+            }
+            fallback_category = category_mapping.get(category, 'SEN')  # Default to SEN
+            try:
+                category_encoded = category_encoder.transform([fallback_category])[0]
+            except ValueError:
+                category_encoded = 0  # Last resort fallback
 
         # Calculate overall performance
         total_wins = sum(kaart.get(rank, [0, 0])[0] for rank in ranking_order)
@@ -205,6 +274,28 @@ def prepare_features(player_data, feature_cols, category_encoder, rank_to_int, r
         e6_ready_to_advance = 1 if (current_rank == 'E6' and nearby_win_rate > 0.6 and total_matches >= 15) else 0
         youth_match_reliability = np.tanh(total_matches / 40)
         
+        # ELO features (only if include_elo=True for special cases)
+        elo_log = 0
+        elo_advantage = 0
+        if include_elo:
+            # Convert ELO to float if it's a string
+            try:
+                elo_val = float(elo) if elo else 0
+            except (ValueError, TypeError):
+                elo_val = 0
+            
+            if elo_val > 0:
+                elo_log = np.log1p(elo_val)
+                rank_elo_map = {
+                    'A': 1800, 'B0': 1600, 'B2': 1500, 'B4': 1400, 'B6': 1300,
+                    'C0': 1200, 'C2': 1100, 'C4': 1000, 'C6': 900,
+                    'D0': 800, 'D2': 750, 'D4': 700, 'D6': 650,
+                    'E0': 600, 'E2': 550, 'E4': 500, 'E6': 450,
+                    'NG': 400
+                }
+                expected_elo = rank_elo_map.get(current_rank, 400)
+                elo_advantage = np.clip((elo_val - expected_elo) / 100, -5, 5)
+        
         # Create feature dictionary with all possible features
         features = {
             'current_rank_encoded': current_rank_encoded,
@@ -244,7 +335,10 @@ def prepare_features(player_data, feature_cols, category_encoder, rank_to_int, r
             'ng_win_rate': ng_win_rate,
             'ng_has_many_matches': ng_has_many_matches,
             'e6_ready_to_advance': e6_ready_to_advance,
-            'youth_match_reliability': youth_match_reliability
+            'youth_match_reliability': youth_match_reliability,
+            # ELO features (for special cases model)
+            'elo_log': elo_log,
+            'elo_advantage': elo_advantage
         }
 
         # Create DataFrame with all feature columns
@@ -273,10 +367,10 @@ def prepare_features(player_data, feature_cols, category_encoder, rank_to_int, r
         st.error(traceback.format_exc())
         return None
 
-def should_boost_for_big_jump(player_data, current_rank, predicted_rank, rank_to_int):
+def should_boost_for_big_jump(player_data, current_rank, predicted_rank, rank_to_int, is_filtered_model=False):
     """
     Check if prediction should be boosted for big improvement
-    Only boosts if strong signals present AND model already predicts improvement
+    More aggressive for filtered model (youth categories)
     """
     current_idx = rank_to_int.get(current_rank, 999)
     predicted_idx = rank_to_int.get(predicted_rank, 999)
@@ -316,47 +410,139 @@ def should_boost_for_big_jump(player_data, current_rank, predicted_rank, rank_to
     better_total = better_wins + better_losses
     vs_better_win_rate = better_wins / better_total if better_total > 0 else 0
     
-    # Check for strong signals
-    strong_overall = win_rate > 0.70
-    beating_better = vs_better_win_rate > 0.35
-    dominating_level = nearby_win_rate > 0.75
-    enough_matches = total_matches >= 20
-    
-    # Need at least 3 of 4 strong signals
-    signals = sum([strong_overall, beating_better, dominating_level, enough_matches])
-    
-    return signals >= 3
+    # More aggressive thresholds for filtered model (youth categories)
+    if is_filtered_model:
+        # Lower thresholds for youth - they improve faster
+        strong_overall = win_rate > 0.65  # Was 0.70
+        beating_better = vs_better_win_rate > 0.25  # Was 0.35
+        dominating_level = nearby_win_rate > 0.70  # Was 0.75
+        enough_matches = total_matches >= 15  # Was 20
+        
+        # Need at least 2 of 4 strong signals for youth
+        signals = sum([strong_overall, beating_better, dominating_level, enough_matches])
+        return signals >= 2
+    else:
+        # Conservative thresholds for regular model
+        strong_overall = win_rate > 0.70
+        beating_better = vs_better_win_rate > 0.35
+        dominating_level = nearby_win_rate > 0.75
+        enough_matches = total_matches >= 20
+        
+        # Need at least 3 of 4 strong signals
+        signals = sum([strong_overall, beating_better, dominating_level, enough_matches])
+        return signals >= 3
 
-def predict_next_rank(player_data, model, feature_cols, category_encoder, rank_to_int, int_to_rank, ranking_order, scaler=None):
+def predict_next_rank(player_data, model, feature_cols, category_encoder, rank_to_int, int_to_rank, ranking_order, scaler=None, special_model=None, special_feature_cols=None, is_filtered_model=False):
     """Predict the next rank for a player with optional boost for big improvements"""
     try:
+        # Check if this is a special case and we have the special model
+        use_special_model = False
+        if special_model is not None and is_special_case(player_data, rank_to_int):
+            elo = player_data.get('elo', 0)
+            # Convert ELO to float if it's a string
+            try:
+                elo = float(elo) if elo else 0
+            except (ValueError, TypeError):
+                elo = 0
+            
+            if elo > 0:  # Only use special model if ELO is available
+                use_special_model = True
+                st.info("🎯 Using ELO-enhanced model for special case prediction")
+        
         # Prepare features
-        features = prepare_features(player_data, feature_cols, category_encoder, rank_to_int, ranking_order, scaler)
+        if use_special_model:
+            features = prepare_features(player_data, special_feature_cols, category_encoder, rank_to_int, ranking_order, scaler, include_elo=True)
+            prediction_model = special_model
+        else:
+            features = prepare_features(player_data, feature_cols, category_encoder, rank_to_int, ranking_order, scaler, include_elo=False)
+            prediction_model = model
 
         if features is None:
             return None
 
         # Make prediction
-        prediction = model.predict(features)[0]
+        prediction = prediction_model.predict(features)[0]
         
         # Get prediction probabilities for confidence
-        prediction_proba = model.predict_proba(features)[0]
+        prediction_proba = prediction_model.predict_proba(features)[0]
         confidence = prediction_proba.max() * 100  # Convert to percentage
 
         # Convert prediction back to rank label
         predicted_rank = int_to_rank.get(prediction, "Unknown")
         
-        # Get current rank
+        # Get current rank and category
         current_rank = player_data.get('ranking') or player_data.get('current_ranking')
+        category = player_data.get('category')
         
-        # Check if should boost for big improvement
+        # Check if should boost for big improvement (ONLY for filtered model - youth categories)
         was_boosted = False
-        if current_rank and should_boost_for_big_jump(player_data, current_rank, predicted_rank, rank_to_int):
+        if is_filtered_model and current_rank and should_boost_for_big_jump(player_data, current_rank, predicted_rank, rank_to_int, is_filtered_model):
             # Boost by 1 additional rank
             boosted_idx = max(0, prediction - 1)
             predicted_rank = int_to_rank.get(boosted_idx, predicted_rank)
             was_boosted = True
             confidence = confidence * 0.9  # Slightly lower confidence for boosted predictions
+        
+        # JUNIOR-SPECIFIC ADJUSTMENTS (JUN/J19) - ONLY for filtered model
+        if is_filtered_model and category in ['JUN', 'J19'] and current_rank:
+            current_idx = rank_to_int.get(current_rank, 999)
+            predicted_idx = rank_to_int.get(predicted_rank, 999)
+            
+            # Calculate performance metrics
+            kaart = player_data.get('kaart', {})
+            total_wins = sum(kaart.get(rank, [0, 0])[0] for rank in ranking_order)
+            total_losses = sum(kaart.get(rank, [0, 0])[1] for rank in ranking_order)
+            total_matches = total_wins + total_losses
+            win_rate = total_wins / total_matches if total_matches > 0 else 0
+            
+            # Nearby win rate
+            nearby_wins = 0
+            nearby_losses = 0
+            for rank in ranking_order:
+                rank_idx = rank_to_int.get(rank, 999)
+                if abs(rank_idx - current_idx) <= 3:
+                    wins, losses = kaart.get(rank, [0, 0])
+                    nearby_wins += wins
+                    nearby_losses += losses
+            nearby_total = nearby_wins + nearby_losses
+            nearby_win_rate = nearby_wins / nearby_total if nearby_total > 0 else 0
+            
+            # Vs better win rate
+            better_wins = 0
+            better_losses = 0
+            for rank in ranking_order:
+                rank_idx = rank_to_int.get(rank, 999)
+                if rank_idx < current_idx:
+                    wins, losses = kaart.get(rank, [0, 0])
+                    better_wins += wins
+                    better_losses += losses
+            better_total = better_wins + better_losses
+            vs_better_win_rate = better_wins / better_total if better_total > 0 else 0
+            
+            # RULE 1: Boost high-performing juniors (especially JUN) - MORE AGGRESSIVE
+            if category == 'JUN' and predicted_idx >= current_idx:  # Not predicting improvement
+                if nearby_win_rate > 0.65 and vs_better_win_rate > 0.20 and total_matches >= 15:  # Lower thresholds
+                    # Strong performer - boost by 1 rank
+                    boosted_idx = max(0, predicted_idx - 1)
+                    predicted_rank = int_to_rank.get(boosted_idx, predicted_rank)
+                    was_boosted = True
+                    confidence = confidence * 0.85
+            
+            # RULE 2: Be conservative with J19 declines (they're rare)
+            if category == 'J19' and predicted_idx > current_idx:  # Predicting decline
+                # Only predict decline if very strong signal
+                if nearby_win_rate > 0.35:  # Not terrible performance
+                    # Keep at same rank instead
+                    predicted_rank = current_rank
+                    confidence = confidence * 0.8
+            
+            # RULE 3: Active high-performers get extra boost - MORE AGGRESSIVE
+            if total_matches >= 30 and win_rate > 0.60 and nearby_win_rate > 0.60:  # Lower thresholds
+                if predicted_idx >= current_idx:  # Not already predicting improvement
+                    boosted_idx = max(0, predicted_idx - 1)
+                    predicted_rank = int_to_rank.get(boosted_idx, predicted_rank)
+                    was_boosted = True
+                    confidence = confidence * 0.85
 
         return predicted_rank, confidence, was_boosted
 
@@ -541,6 +727,9 @@ def main():
     # Load models and encoders (ORIGINAL SETUP - BEST PERFORMANCE)
     regular_model, regular_category_encoder, regular_feature_cols, regular_int_to_rank, regular_rank_to_int, regular_ranking_order, regular_scaler = load_regular_model_and_encoders()
     filtered_model, filtered_category_encoder, filtered_feature_cols, filtered_int_to_rank, filtered_rank_to_int, filtered_ranking_order, filtered_scaler = load_filtered_model_and_encoders()
+    
+    # Load special cases model (V4 hybrid with ELO)
+    special_model, special_category_encoder, special_feature_cols, special_int_to_rank, special_rank_to_int, special_ranking_order = load_special_cases_model()
 
     if None in [regular_model, regular_category_encoder, regular_feature_cols, regular_int_to_rank, regular_rank_to_int, regular_ranking_order]:
         st.error("Failed to load regular model components. Please check the model files.")
@@ -653,15 +842,37 @@ def main():
                         st.metric("Seizoen", player_data.get('season', 'Unknown'))
                         st.metric("Unique Index", player_data.get('unique_index', 'Unknown'))
                     
-                    # Choose model based on category
+                    # Choose model based on category AND rank
                     category = player_data.get('category')
                     current_rank = player_data.get('ranking') or player_data.get('current_ranking')
                     
-                    # Model selection logic (ORIGINAL - BEST PERFORMANCE):
-                    # 1. BEN/PRE/MIN/CAD categories -> use filtered model
-                    # 2. All other categories (including JUN, J19) -> use regular model
+                    # Model selection logic:
+                    # 1. BEN/PRE/MIN/CAD categories with rank C6 or lower (worse) -> use filtered model
+                    # 2. BEN/PRE/MIN/CAD categories with rank above C6 (better) -> use regular model
+                    # 3. All other categories -> use regular model
                     
+                    # Define rank order (lower index = better rank)
+                    rank_order = ['A', 'B0', 'B2', 'B4', 'B6', 'C0', 'C2', 'C4', 'C6', 
+                                  'D0', 'D2', 'D4', 'D6', 'E0', 'E2', 'E4', 'E6', 'NG']
+                    
+                    use_filtered = False
                     if category in ["BEN", "PRE", "MIN", "CAD"]:
+                        # Check if rank is C6 or lower (worse)
+                        try:
+                            current_rank_idx = rank_order.index(current_rank)
+                            c6_idx = rank_order.index('C6')
+                            # Use filtered model only if rank is C6 or worse (higher index)
+                            if current_rank_idx >= c6_idx:
+                                use_filtered = True
+                            else:
+                                # For youth at high ranks (above C6), still use filtered model
+                                # but we'll disable the aggressive boost
+                                use_filtered = True
+                        except (ValueError, AttributeError):
+                            # If rank not found, default to filtered for youth
+                            use_filtered = True
+                    
+                    if use_filtered:
                         # Use filtered model for youth categories
                         model = filtered_model
                         category_encoder = filtered_category_encoder
@@ -670,9 +881,19 @@ def main():
                         int_to_rank = filtered_int_to_rank
                         ranking_order = filtered_ranking_order
                         scaler = filtered_scaler
-                        model_type = "Filtered (youth categories)"
+                        
+                        # Check if rank is above C6 (better rank)
+                        try:
+                            current_rank_idx = rank_order.index(current_rank)
+                            c6_idx = rank_order.index('C6')
+                            if current_rank_idx < c6_idx:
+                                model_type = "Filtered (youth high rank - no boost)"
+                            else:
+                                model_type = "Filtered (youth C6+)"
+                        except (ValueError, AttributeError):
+                            model_type = "Filtered (youth)"
                     else:
-                        # Use regular model for all other categories (including JUN, J19)
+                        # Use regular model for all other cases
                         model = regular_model
                         category_encoder = regular_category_encoder
                         feature_cols = regular_feature_cols
@@ -680,7 +901,7 @@ def main():
                         int_to_rank = regular_int_to_rank
                         ranking_order = regular_ranking_order
                         scaler = regular_scaler
-                        model_type = "Regular (all categories)"
+                        model_type = "Regular"
 
                     # Display performance data
                     st.subheader("KAART")
@@ -725,9 +946,13 @@ def main():
                         st.plotly_chart(fig, use_container_width=True)
 
                     # Make prediction first (needed for progression chart)
+                    # Only apply boost for youth at C6 or lower
+                    apply_boost = "Filtered (youth C6+)" in model_type
                     result = predict_next_rank(
                         player_data, model, feature_cols, category_encoder, 
-                        rank_to_int, int_to_rank, ranking_order, scaler
+                        rank_to_int, int_to_rank, ranking_order, scaler,
+                        special_model=special_model, special_feature_cols=special_feature_cols,
+                        is_filtered_model=apply_boost
                     )
                     
                     predicted_rank = None

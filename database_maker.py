@@ -94,7 +94,7 @@ def get_information(club: str = None, naam: str = None, seizoen: int = None):
         season=seizoen,
         name_search=naam,
         extended_information=True,
-        ranking_points_information=None,
+        ranking_points_information=True,
         with_results=None,
         with_opponent_ranking_evaluation=None,
     )
@@ -112,6 +112,15 @@ def extract_unique_index(information):
         unique_index = getattr(member, 'UniqueIndex', None)
         unique_indices.append(unique_index)
     return unique_indices[0] if unique_indices else None  # Return first unique index or None
+
+def extract_elo(information):
+    """Extract ELO rating from RankingPointsEntries."""
+    for member in information.MemberEntries:
+        ranking_points = getattr(member, 'RankingPointsEntries', [])
+        for entry in ranking_points:
+            if getattr(entry, 'MethodName', None) == 'ELO':
+                return getattr(entry, 'Value', None)
+    return None
 
 def get_data(club: str = None, name: str = None, season: int = 24):
     naam = str(name)
@@ -140,6 +149,7 @@ def get_data(club: str = None, name: str = None, season: int = 24):
             'province': get_province_for_club(club),
             'club_name': get_club_name_for_club(club),
             'unique_index': extract_unique_index(information),
+            'elo': extract_elo(information),
             'kaart': kaart,
             'season': f"20{seizoen-1}-20{seizoen}"
         }
@@ -164,5 +174,6 @@ def get_memberlist(club: str = None, season: int = None):
     )
 
 if __name__ == "__main__":
-    lijst = get_memberlist(club="A182", season=24)
-    print(lijst)
+   
+    elotest = get_information(naam="SANDER SMETS", club="A182", seizoen=24)
+    print(elotest)
