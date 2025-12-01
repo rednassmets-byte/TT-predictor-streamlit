@@ -50,7 +50,7 @@ def get_members_for_club_season(club, season):
                 members.append(last_name)
         return sorted(members)
     except Exception as e:
-        st.sidebar.error(f"Error loading members: {e}")
+        st.error(f"Error loading members: {e}")
         return []
 
 # Load the pre-trained model and encoders
@@ -66,7 +66,7 @@ def load_regular_model_and_encoders():
         model = joblib.load("model_v3_improved.pkl")
         return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
     except Exception as e:
-        st.error(f"❌ V3 Regular model not available: {str(e)}")
+        st.error(f"V3 Regular model not available: {str(e)}")
         st.error("Please ensure all model files are uploaded to the repository.")
         return None, None, None, None, None, None, None
 
@@ -83,7 +83,7 @@ def load_filtered_model_and_encoders():
         model = joblib.load("model_filtered_v3_improved.pkl")
         return model, category_encoder, feature_cols, int_to_rank, rank_to_int, ranking_order, None
     except Exception as e:
-        st.error(f"❌ V3 Filtered model not available: {str(e)}")
+        st.error(f"V3 Filtered model not available: {str(e)}")
         st.error("Please ensure all model files are uploaded to the repository.")
         return None, None, None, None, None, None, None
 
@@ -435,9 +435,18 @@ def should_boost_for_big_jump(player_data, current_rank, predicted_rank, rank_to
 def predict_next_rank(player_data, model, feature_cols, category_encoder, rank_to_int, int_to_rank, ranking_order, scaler=None, special_model=None, special_feature_cols=None, is_filtered_model=False):
     """Predict the next rank for a player with optional boost for big improvements"""
     try:
+        # Get category and current rank
+        category = player_data.get('category')
+        current_rank = player_data.get('ranking') or player_data.get('current_ranking')
+        
+        # Younger youth categories should NOT use ELO model
+        younger_youth = ['BEN', 'PRE', 'MIN', 'CAD']
+        is_younger_youth = category in younger_youth
+        
+        # Older youth (JUN, J19, J21) and adults CAN use ELO model
         # Check if this is a special case and we have the special model
         use_special_model = False
-        if special_model is not None and is_special_case(player_data, rank_to_int):
+        if not is_younger_youth and special_model is not None and is_special_case(player_data, rank_to_int):
             elo = player_data.get('elo', 0)
             # Convert ELO to float if it's a string
             try:
@@ -447,7 +456,7 @@ def predict_next_rank(player_data, model, feature_cols, category_encoder, rank_t
             
             if elo > 0:  # Only use special model if ELO is available
                 use_special_model = True
-                st.info("🎯 Using ELO-enhanced model for special case prediction")
+                st.info("Using ELO-enhanced model for special case prediction")
         
         # Prepare features
         if use_special_model:
@@ -558,11 +567,11 @@ def get_rank_comparison(current_rank, predicted_rank, rank_to_int):
     predicted_idx = rank_to_int.get(predicted_rank, 999)
     
     if predicted_idx < current_idx:
-        return "🟢", "↑", "success", "Verbetering!"
+        return "+", "↑", "success", "Verbetering!"
     elif predicted_idx > current_idx:
-        return "🔴", "↓", "error", "Achteruitgang"
+        return "-", "↓", "error", "Achteruitgang"
     else:
-        return "🟡", "→", "info", "Geen verandering"
+        return "=", "→", "info", "Geen verandering"
 
 def create_win_loss_chart(kaart_data, ranking_order):
     """Create a bar chart for win/loss data"""
@@ -689,40 +698,255 @@ def create_rank_progression_chart(club_code, player_name, current_season, rank_t
     return fig
 
 def main():
-    st.set_page_config(page_title="TT KlassementPredictor", page_icon="🏓", layout="wide")
+    st.set_page_config(page_title="TT KlassementPredictor", page_icon="🏓", layout="wide", initial_sidebar_state="collapsed")
     
-    # Custom CSS for responsive design
+    # Custom CSS for mobile-first responsive design with HIGH CONTRAST & MODERN COLORS
     st.markdown("""
         <style>
-        /* Responsive adjustments */
+        /* Hide sidebar by default for mobile experience */
+        [data-testid="stSidebar"] {
+            display: none;
+        }
+        
+        /* Modern color palette with high contrast */
+        :root {
+            --primary-green: #00b359;
+            --primary-dark: #008040;
+            --secondary-blue: #0066cc;
+            --accent-orange: #ff6b35;
+            --success-green: #28a745;
+            --warning-yellow: #ffc107;
+            --danger-red: #dc3545;
+            --background-light: #f8f9fa;
+            --background-white: #ffffff;
+            --text-dark: #1a1a1a;
+            --text-medium: #495057;
+            --border-color: #ced4da;
+            --shadow-color: rgba(0, 0, 0, 0.15);
+        }
+        
+        /* Page background gradient */
+        .stApp {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+        
+        /* Stronger text contrast with modern colors */
+        body, p, span, div, label {
+            color: var(--text-dark) !important;
+            font-weight: 500;
+        }
+        
+        h1 {
+            color: var(--primary-dark) !important;
+            font-weight: 800 !important;
+            background: linear-gradient(135deg, var(--primary-green), var(--primary-dark));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        h2, h3 {
+            color: var(--primary-dark) !important;
+            font-weight: 700 !important;
+        }
+        
+        h4, h5, h6 {
+            color: var(--text-dark) !important;
+            font-weight: 600 !important;
+        }
+        
+        /* Mobile-first responsive adjustments */
         @media (max-width: 768px) {
             .stColumn {
                 width: 100% !important;
+                padding: 0 !important;
             }
             h1 {
-                font-size: 1.5rem !important;
+                font-size: 1.8rem !important;
+            }
+            h2 {
+                font-size: 1.4rem !important;
+            }
+            h3 {
+                font-size: 1.2rem !important;
+            }
+            .stButton button {
+                width: 100% !important;
+                font-size: 1.1rem !important;
+                padding: 0.75rem !important;
+            }
+            .stSelectbox, .stNumberInput {
+                font-size: 1rem !important;
             }
         }
         
-        /* Better spacing */
+        /* Colorful progress bar */
         .stProgress > div > div {
-            background-color: #00cc66;
+            background: linear-gradient(90deg, var(--primary-green), var(--success-green)) !important;
         }
         
-        /* Card-like containers */
+        /* Modern card containers with color accents */
         .stMetric {
-            background-color: #f0f2f6;
-            padding: 10px;
-            border-radius: 5px;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px var(--shadow-color) !important;
+            border-left: 4px solid var(--primary-green) !important;
+            border-top: 1px solid var(--border-color) !important;
+            border-right: 1px solid var(--border-color) !important;
+            border-bottom: 1px solid var(--border-color) !important;
+            transition: all 0.3s ease;
+        }
+        
+        .stMetric:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px var(--shadow-color) !important;
+        }
+        
+        .stMetric label {
+            color: var(--text-medium) !important;
+            font-weight: 600 !important;
+            font-size: 0.85rem !important;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .stMetric [data-testid="stMetricValue"] {
+            color: var(--primary-dark) !important;
+            font-weight: 800 !important;
+            font-size: 1.8rem !important;
+        }
+        
+        /* Modern gradient button styling */
+        .stButton button {
+            background: linear-gradient(135deg, var(--primary-green) 0%, var(--primary-dark) 100%) !important;
+            border: none !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            box-shadow: 0 4px 12px rgba(0, 179, 89, 0.4) !important;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .stButton button:hover {
+            background: linear-gradient(135deg, #00cc66 0%, var(--primary-green) 100%) !important;
+            box-shadow: 0 6px 20px rgba(0, 179, 89, 0.6) !important;
+            transform: translateY(-3px);
+        }
+        
+        .stButton button:active {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 179, 89, 0.4) !important;
+        }
+        
+        /* Modern selectbox and input styling */
+        .stSelectbox > div > div, .stNumberInput > div > div > input {
+            background-color: var(--background-white) !important;
+            border: 2px solid var(--border-color) !important;
+            border-radius: 8px !important;
+            color: var(--text-dark) !important;
+            font-weight: 600 !important;
+            transition: all 0.3s ease;
+        }
+        
+        .stSelectbox > div > div:focus-within, .stNumberInput > div > div > input:focus {
+            border-color: var(--primary-green) !important;
+            box-shadow: 0 0 0 3px rgba(0, 179, 89, 0.1) !important;
+        }
+        
+        /* Colorful info/warning boxes */
+        div[data-baseweb="notification"] {
+            border-radius: 10px !important;
+            border-left-width: 4px !important;
+            box-shadow: 0 3px 10px var(--shadow-color) !important;
+            font-weight: 600 !important;
+        }
+        
+        /* Info box - blue */
+        div[data-baseweb="notification"][kind="info"] {
+            background-color: #e7f3ff !important;
+            border-left-color: var(--secondary-blue) !important;
+        }
+        
+        /* Success box - green */
+        div[data-baseweb="notification"][kind="positive"] {
+            background-color: #d4edda !important;
+            border-left-color: var(--success-green) !important;
+        }
+        
+        /* Warning box - yellow */
+        div[data-baseweb="notification"][kind="warning"] {
+            background-color: #fff3cd !important;
+            border-left-color: var(--warning-yellow) !important;
+        }
+        
+        /* Error box - red */
+        div[data-baseweb="notification"][kind="error"] {
+            background-color: #f8d7da !important;
+            border-left-color: var(--danger-red) !important;
+        }
+        
+        /* Prediction display with gradient text */
+        div[data-testid="stMarkdownContainer"] h1 {
+            text-align: center;
+            font-weight: 900 !important;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        /* Modern dataframe styling */
+        .stDataFrame {
+            border: 2px solid var(--border-color) !important;
+            border-radius: 10px !important;
+            overflow: hidden;
+        }
+        
+        .stDataFrame thead tr th {
+            background: linear-gradient(135deg, var(--primary-green), var(--primary-dark)) !important;
+            color: white !important;
+            font-weight: 700 !important;
+        }
+        
+        .stDataFrame tbody tr:nth-child(even) {
+            background-color: #f8f9fa !important;
+        }
+        
+        .stDataFrame tbody tr:hover {
+            background-color: #e9ecef !important;
+        }
+        
+        /* Colorful horizontal rule */
+        hr {
+            border: none !important;
+            height: 3px !important;
+            background: linear-gradient(90deg, 
+                var(--primary-green) 0%, 
+                var(--secondary-blue) 50%, 
+                var(--accent-orange) 100%) !important;
+            margin: 2rem 0 !important;
+            border-radius: 2px;
+        }
+        
+        /* Caption text with color */
+        .stCaption, small {
+            color: var(--text-medium) !important;
+            font-weight: 600 !important;
+        }
+        
+        /* Subheader with icon styling */
+        h2::before, h3::before {
+            margin-right: 8px;
+        }
+        
+        /* Chart containers */
+        .js-plotly-plot {
+            border-radius: 10px;
+            box-shadow: 0 2px 8px var(--shadow-color);
         }
         </style>
     """, unsafe_allow_html=True)
 
     st.title("TT KlassementPredictor")
-    st.markdown("Voorspel je klassement op basis van je kaart")
-    
-    # Model accuracy note
-    st.info(" Model Accuracy: ~85% (trained on Antwerpen data, seasons 15-26)")
 
     # Load models and encoders (ORIGINAL SETUP - BEST PERFORMANCE)
     regular_model, regular_category_encoder, regular_feature_cols, regular_int_to_rank, regular_rank_to_int, regular_ranking_order, regular_scaler = load_regular_model_and_encoders()
@@ -739,21 +963,26 @@ def main():
         st.error("Failed to load filtered model components. Please check the filtered model files.")
         return
     
-    # Sidebar for input
-    st.sidebar.header("Player Information")
-
+    # Main input section (mobile-friendly)
+    st.header("Speler Selectie")
+    
     # Fixed to Antwerpen province only
     selected_province = 'Antwerpen'
-    st.sidebar.info("Province: Antwerpen")
+    st.info("Provincie: Antwerpen")
 
-    # Club selection based on province
-    clubs_in_province = get_clubs_for_province(selected_province)
-    club_names = [f"{code} - {get_club_name_for_club(code)}" for code in clubs_in_province]
-    selected_club_display = st.sidebar.selectbox("Select Club", club_names)
-    club_code = selected_club_display.split(' - ')[0] if selected_club_display else ""
-
-    # Season selection
-    season = st.sidebar.number_input("Seizoen", min_value=15, max_value=26, value=26)
+    # Create columns for better mobile layout
+    col1, col2 = st.columns([2, 1])
+    
+    with col1:
+        # Club selection based on province
+        clubs_in_province = get_clubs_for_province(selected_province)
+        club_names = [f"{code} - {get_club_name_for_club(code)}" for code in clubs_in_province]
+        selected_club_display = st.selectbox("Selecteer Club", club_names)
+        club_code = selected_club_display.split(' - ')[0] if selected_club_display else ""
+    
+    with col2:
+        # Season selection
+        season = st.number_input("Seizoen", min_value=15, max_value=26, value=26)
 
     # Initialize session state for selected player
     if 'selected_player' not in st.session_state:
@@ -785,18 +1014,18 @@ def main():
                 # No season change or no previous player
                 default_index = members.index(st.session_state.selected_player) if st.session_state.selected_player in members else 0
             
-            player_name = st.sidebar.selectbox("Select Player", members, index=default_index)
+            player_name = st.selectbox("Selecteer Speler", members, index=default_index)
             st.session_state.selected_player = player_name
             st.session_state.previous_season = season
         else:
-            player_name = st.sidebar.text_input("Player Name (manual entry)", value="")
-            st.sidebar.warning("Could not load members automatically. Please enter name manually.")
+            player_name = st.text_input("Speler Naam (manuele invoer)", value="")
+            st.warning("Kon leden niet automatisch laden. Voer naam manueel in.")
     else:
-        player_name = st.sidebar.text_input("Player Name", value="")
+        player_name = st.text_input("Speler Naam", value="")
     
-    # Predict button in sidebar
-    st.sidebar.markdown("---")
-    predict_button = st.sidebar.button(" Voorspel Klassement", type="primary", use_container_width=True)
+    # Predict button
+    st.markdown("---")
+    predict_button = st.button("Voorspel Klassement", type="primary", use_container_width=True)
     
     # Auto-predict if season changed and player exists
     if st.session_state.auto_predict:
@@ -804,8 +1033,6 @@ def main():
         st.session_state.auto_predict = False
     
     # Main content area
-    st.header("Kaart & Prediction")
-    
     if not predict_button:
         # Empty state
         st.markdown("---")
@@ -821,28 +1048,7 @@ def main():
                 player_data = get_data(club=club_code, name=player_name, season=season)
                 
                 if player_data:
-                    # Display player information
-                    st.subheader("Kaart")
-                    
-                    # Display player name in large text
-                    st.markdown(f"# {player_name}")
-                    st.markdown("---")
-                    
-                    info_col1, info_col2, info_col3 = st.columns(3)
-                    
-                    with info_col1:
-                        st.metric("Klassementt", player_data.get('current_ranking', 'Unknown'))
-                        st.metric("Categorie", player_data.get('category', 'Unknown'))
-                    
-                    with info_col2:
-                        st.metric("Club", player_data.get('club_name', 'Unknown'))
-                        st.metric("Provincie", player_data.get('province', 'Unknown'))
-                    
-                    with info_col3:
-                        st.metric("Seizoen", player_data.get('season', 'Unknown'))
-                        st.metric("Unique Index", player_data.get('unique_index', 'Unknown'))
-                    
-                    # Choose model based on category AND rank
+                    # Get basic info for model selection
                     category = player_data.get('category')
                     current_rank = player_data.get('ranking') or player_data.get('current_ranking')
                     
@@ -903,7 +1109,83 @@ def main():
                         scaler = regular_scaler
                         model_type = "Regular"
 
-                    # Display performance data
+                    # ========== PREDICTION SECTION (AT THE TOP) ==========
+                    # Make prediction
+                    apply_boost = "Filtered (youth C6+)" in model_type
+                    result = predict_next_rank(
+                        player_data, model, feature_cols, category_encoder, 
+                        rank_to_int, int_to_rank, ranking_order, scaler,
+                        special_model=special_model, special_feature_cols=special_feature_cols,
+                        is_filtered_model=apply_boost
+                    )
+                    
+                    predicted_rank = None
+                    if result:
+                        predicted_rank, confidence, was_boosted = result
+                        
+                        # Get comparison indicators
+                        emoji, arrow, color_type, message = get_rank_comparison(current_rank, predicted_rank, rank_to_int)
+                        
+                        # Display prediction - ALLEEN VOORSPELD KLASSEMENT
+                        st.markdown("### Voorspeld Klassement")
+                        st.markdown(f"""
+                            <div style="
+                                background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
+                                padding: 30px;
+                                border-radius: 15px;
+                                text-align: center;
+                                box-shadow: 0 6px 20px rgba(40, 167, 69, 0.3);
+                                border: 4px solid #28a745;
+                            ">
+                                <h1 style="
+                                    color: #2c3e50;
+                                    font-size: 4rem;
+                                    margin: 0;
+                                    font-weight: 900;
+                                    text-shadow: none;
+                                    letter-spacing: 3px;
+                                ">{predicted_rank}</h1>
+                            </div>
+                        """, unsafe_allow_html=True)
+                        
+                        # Show confidence with interpretation
+                        if confidence >= 70:
+                            confidence_label = "Zeer zeker"
+                            confidence_color = "✓"
+                        elif confidence >= 50:
+                            confidence_label = "Redelijk zeker"
+                            confidence_color = "~"
+                        else:
+                            confidence_label = "Onzeker"
+                            confidence_color = "!"
+                        
+                        st.caption(f"{confidence_color} Zekerheid: {confidence:.1f}% ({confidence_label}) | {message}")
+                    else:
+                        st.error("Kan geen voorspelling maken. Controleer de invoergegevens.")
+                        predicted_rank = None
+                    
+                    st.markdown("---")
+                    
+                    # ========== PLAYER INFORMATION SECTION ==========
+                    st.markdown(f"# {player_name}")
+                    
+                    info_col1, info_col2, info_col3 = st.columns(3)
+                    
+                    with info_col1:
+                        st.metric("Klassement", player_data.get('current_ranking', 'Unknown'))
+                        st.metric("Categorie", player_data.get('category', 'Unknown'))
+                    
+                    with info_col2:
+                        st.metric("Club", player_data.get('club_name', 'Unknown'))
+                        st.metric("Provincie", player_data.get('province', 'Unknown'))
+                    
+                    with info_col3:
+                        st.metric("Seizoen", player_data.get('season', 'Unknown'))
+                        st.metric("Unique Index", player_data.get('unique_index', 'Unknown'))
+                    
+                    st.markdown("---")
+                    
+                    # ========== PERFORMANCE DATA SECTION ==========
                     st.subheader("KAART")
 
                     # Group specific ranks: A together, B0 and B0e together, others separate
@@ -940,67 +1222,18 @@ def main():
                     # Display table and chart side by side
                     col_table, col_chart = st.columns([1, 1])
                     with col_table:
-                        st.dataframe(performance_df, use_container_width=True)
+                        st.dataframe(performance_df, use_container_width=True, hide_index=True)
                     with col_chart:
                         fig = create_win_loss_chart(player_data.get('kaart', {}), ranking_order)
                         st.plotly_chart(fig, use_container_width=True)
 
-                    # Make prediction first (needed for progression chart)
-                    # Only apply boost for youth at C6 or lower
-                    apply_boost = "Filtered (youth C6+)" in model_type
-                    result = predict_next_rank(
-                        player_data, model, feature_cols, category_encoder, 
-                        rank_to_int, int_to_rank, ranking_order, scaler,
-                        special_model=special_model, special_feature_cols=special_feature_cols,
-                        is_filtered_model=apply_boost
-                    )
-                    
-                    predicted_rank = None
-                    if result:
-                        predicted_rank, confidence, was_boosted = result
-                    
                     # Display rank progression chart with prediction
                     st.subheader("Rank Progression")
                     progression_fig = create_rank_progression_chart(club_code, player_name, season, rank_to_int, predicted_rank)
                     if progression_fig:
                         st.plotly_chart(progression_fig, use_container_width=True)
                     else:
-                        st.info("Not enough historical data to show rank progression (need at least 2 seasons)")
-
-                    # Display prediction
-                    st.subheader("Voorspelling  Klassement")
-                    
-                    if result:
-                        current_rank = player_data.get('ranking') or player_data.get('current_ranking')
-                        
-                        # Get comparison indicators
-                        emoji, arrow, color_type, message = get_rank_comparison(current_rank, predicted_rank, rank_to_int)
-                        
-                        # Display prediction
-                        st.markdown(f"# {predicted_rank}")
-                        
-                        # Show if prediction was boosted
-                       
-                        
-                        # Show confidence with interpretation
-                        if confidence >= 70:
-                            confidence_label = "Zeer zeker"
-                            confidence_color = "🟢"
-                        elif confidence >= 50:
-                            confidence_label = "Redelijk zeker"
-                            confidence_color = "🟡"
-                        else:
-                            confidence_label = "Onzeker"
-                            confidence_color = "🟠"
-                        
-                        st.caption(f"{confidence_color} Confidence: {confidence:.1f}% ({confidence_label}) | {message}")
-                        
-                        # Warning for low confidence
-                        if confidence < 30:
-                            st.info("Lage zekerheid - voorspelling kan variëren. Meer wedstrijden spelen verhoogt de nauwkeurigheid.")
-                    else:
-                        st.error("Unable to make prediction. Please check the input data.")
-                        predicted_rank = None
+                        st.info("Niet genoeg historische data om progressie te tonen (minimaal 2 seizoenen nodig)")
                     
                     # Calculate performance score (1-100)
                     st.subheader("Performance Score")
@@ -1022,17 +1255,30 @@ def main():
                         performance_score = int(50 + rank_difference * 10 + (win_rate - 0.5) * 20)  # Win rate modulation adds/subtracts up to 10 points
                         performance_score = max(0, min(100, performance_score))
 
-                        # Color gradient from dark red (0) to dark green (100)
+                        # High contrast color gradient from bright red (0) to bright green (100)
                         win_rate = total_wins / total_matches if total_matches > 0 else 0
                         rank_improvement = rank_difference
                         
-                        # Calculate color gradient from dark red to dark green
-                        # At 0: dark red (139, 0, 0)
-                        # At 100: dark green (0, 100, 0)
+                        # Calculate color gradient with HIGH CONTRAST
+                        # At 0: bright red (220, 53, 69) - Bootstrap danger
+                        # At 50: orange (255, 193, 7) - Bootstrap warning
+                        # At 100: bright green (40, 167, 69) - Bootstrap success
                         ratio = performance_score / 100
-                        red = int(139 * (1 - ratio))
-                        green = int(100 * ratio)
-                        color = f"rgb({red}, {green}, 0)"
+                        
+                        if ratio < 0.5:
+                            # Red to Orange (0-50)
+                            local_ratio = ratio * 2
+                            red = int(220 + (255 - 220) * local_ratio)
+                            green = int(53 + (193 - 53) * local_ratio)
+                            blue = int(69 + (7 - 69) * local_ratio)
+                        else:
+                            # Orange to Green (50-100)
+                            local_ratio = (ratio - 0.5) * 2
+                            red = int(255 + (40 - 255) * local_ratio)
+                            green = int(193 + (167 - 193) * local_ratio)
+                            blue = int(7 + (69 - 7) * local_ratio)
+                        
+                        color = f"rgb({red}, {green}, {blue})"
                         
                         # Display with color gradient
                         st.markdown(f"""
@@ -1046,7 +1292,7 @@ def main():
                         st.caption(f"Predicted ranking improvement: {rank_improvement} levels. {total_wins} wins out of {total_matches} matches ({win_rate:.1%} win rate)")
                     else:
                         st.markdown(f"""
-                            <div style="background-color: rgb(139, 0, 0); padding: 20px; border-radius: 10px; text-align: center;">
+                            <div style="background-color: rgb(220, 53, 69); padding: 20px; border-radius: 10px; text-align: center;">
                                 <h2 style="color: white; margin: 0;">Performance Score</h2>
                                 <h1 style="color: white; margin: 10px 0; font-size: 3rem;">0</h1>
                                 <p style="color: white; margin: 0;">out of 100</p>
@@ -1056,6 +1302,7 @@ def main():
                     
                     # Display info at bottom
                     st.markdown("---")
+                    st.info("Model Accuracy: ~85% (trained on Antwerpen data, seasons 15-26)")
                     st.caption(f"Model: {model_type} | Categorie: {category}")
                     st.caption("Machine learning op data van Antwerpen seizoen 15-26")
                     st.caption("Gemaakt door Smets Sander | Credits: Smets Steven, Tim Jacobs, vttl api")
