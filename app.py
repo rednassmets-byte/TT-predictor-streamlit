@@ -568,11 +568,11 @@ def main():
                 season_options = []
                 for s in available_seasons:
                     # Convert "2025-2026" to 26
-                try:
-                    year = int(s.split('-')[1])
-                    season_options.append(year)
-                except:
-                    continue
+                    try:
+                        year = int(s.split('-')[1])
+                        season_options.append(year)
+                    except:
+                        continue
             
             if season_options:
                 season = st.selectbox("Seizoen", season_options, index=0)
