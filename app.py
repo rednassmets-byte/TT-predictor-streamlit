@@ -841,6 +841,9 @@ def main():
                         }
                         
                         st.success(f"✅ Using database data for {player_data['name']}")
+                    except Exception as e:
+                        st.error(f"❌ Error loading database data: {e}")
+                        player_data = None
         else:
             # Club & Season method
             if not player_name or not club_code:
@@ -854,6 +857,9 @@ def main():
                         else:
                             st.error("❌ Kon speler data niet ophalen van API")
                             player_data = None
+                    except Exception as e:
+                        st.error(f"❌ Error fetching API data: {e}")
+                        player_data = None
         
         if 'player_data' in locals() and player_data:
                     # Get basic info for model selection
