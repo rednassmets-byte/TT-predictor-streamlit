@@ -531,6 +531,11 @@ def main():
         help="Kies tussen club selectie of zoeken in de database"
     )
     
+    # Initialize variables
+    player_name = None
+    club_code = None
+    season = 26  # Default season
+    
     if search_method == "Database Zoeken":
         # Load player database for search
         @st.cache_data
@@ -723,13 +728,13 @@ def main():
         
         # Show selected player if any
         if 'selected_player_data' in st.session_state and st.session_state.selected_player_data.get('search_method') == 'database':
-            player_data = st.session_state.selected_player_data
-            st.success(f"Geselecteerde speler: **{player_data['name']}** van {player_data['club']}")
+            player_data_info = st.session_state.selected_player_data
+            st.success(f"Geselecteerde speler: **{player_data_info['name']}** van {player_data_info['club']}")
             
             # Set variables for prediction
-            player_name = player_data['name']
-            club_code = None  # We'll need to extract this from the data
-            season = player_data['season']
+            player_name = player_data_info['name']
+            club_code = None  # Database search doesn't need club_code for API
+            season = player_data_info['season']
             
     else:
         # Original club & season selection method
@@ -841,17 +846,19 @@ def main():
                             'elo': 0  # Default ELO if not available
                         }
                         
-                        st.success(f"Loaded data from database for {player_data['name']}")
+                        st.success(f"✅ Loaded data from database for {player_data['name']}")
                     else:
-                        st.error("Player data not found in database")
+                        st.error("❌ Player data not found in database")
                         player_data = None
                 else:
                     # Original API method
                     if not player_name or not club_code:
-                        st.error("Please select a player and club")
+                        st.error("❌ Please select a player and club")
                         player_data = None
                     else:
                         player_data = get_data(club=club_code, name=player_name, season=season)
+                        if player_data:
+                            st.success(f"✅ Loaded data from API for {player_name}")
                 
                 if player_data:
                     # Get basic info for model selection
