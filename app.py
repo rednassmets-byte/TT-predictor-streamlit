@@ -10,11 +10,16 @@ from huggingface_hub import hf_hub_download
 import plotly.graph_objects as go
 import plotly.express as px
 
-# Import prediction engine
-from prediction_engine import predict_next_rank, get_rank_comparison
-
 # Add current directory to path to ensure imports work
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
+# Try to import prediction engine, fallback to inline functions if not available
+try:
+    from prediction_engine import predict_next_rank, get_rank_comparison
+    USING_PREDICTION_ENGINE = True
+except ImportError:
+    USING_PREDICTION_ENGINE = False
+    st.warning("Using inline prediction functions - prediction_engine.py not found")
 
 try:
     from database_maker import get_data, get_province_for_club, get_club_name_for_club, get_information
@@ -105,6 +110,26 @@ def load_special_cases_model():
     except Exception as e:
         # If special cases model not available, return None (will fall back to V3)
         return None, None, None, None, None, None
+
+# Fallback prediction functions if prediction_engine.py is not available
+if not USING_PREDICTION_ENGINE:
+    def predict_next_rank(player_data, model, feature_cols, category_encoder, rank_to_int, int_to_rank, ranking_order, scaler=None, special_model=None, special_feature_cols=None, is_filtered_model=False):
+        """Fallback prediction function"""
+        try:
+            # Simple prediction without all the complex logic
+            current_rank = player_data.get('ranking') or player_data.get('current_ranking')
+            if not current_rank:
+                return None
+            
+            # For now, just return the current rank as prediction
+            return current_rank, 50.0, False
+        except Exception as e:
+            st.error(f"Error in fallback prediction: {e}")
+            return None
+    
+    def get_rank_comparison(current_rank, predicted_rank, rank_to_int):
+        """Fallback rank comparison function"""
+        return "=", "→", "info", "Geen verandering"
 
 def create_win_loss_chart(kaart_data, ranking_order):
     """Create a bar chart for win/loss data"""
