@@ -521,21 +521,37 @@ def main():
         return
     
     # Main input section (mobile-friendly)
-    st.header("Speler Zoeken")
+    st.header("Speler Selectie")
     
-    # Load player database for search
-    @st.cache_data
-    def load_player_database():
-        try:
-            df = pd.read_csv("club_members_main_data.csv")
-            return df
-        except FileNotFoundError:
-            st.error("Player database not found")
-            return None
+    # Search method selection
+    search_method = st.radio(
+        "Zoek methode:",
+        ["Database Zoeken", "Club & Seizoen"],
+        horizontal=True,
+        help="Kies tussen database zoeken of club selectie"
+    )
     
-    df_players = load_player_database()
+    # Initialize variables
+    player_name = None
+    club_code = None
+    season = 26  # Default season
     
-    if df_players is not None:
+    if search_method == "Database Zoeken":
+        st.subheader("🔍 Database Zoeken")
+        
+        # Load player database for search
+        @st.cache_data
+        def load_player_database():
+            try:
+                df = pd.read_csv("club_members_main_data.csv")
+                return df
+            except FileNotFoundError:
+                st.error("Player database not found")
+                return None
+        
+        df_players = load_player_database()
+        
+        if df_players is not None:
         # Search interface
         col1, col2 = st.columns([3, 1])
         
@@ -647,7 +663,8 @@ def main():
                                     'season': season,
                                     'ranking': ranking,
                                     'category': category,
-                                    'row_data': row
+                                    'row_data': row,
+                                    'search_method': 'database'
                                 }
                                 st.success(f"✅ Geselecteerd: {name}")
                                 st.rerun()
@@ -708,15 +725,86 @@ def main():
                 del st.session_state.example_search
         
         # Show selected player if any
-        if 'selected_player_data' in st.session_state:
+        if 'selected_player_data' in st.session_state and st.session_state.selected_player_data.get('search_method') == 'database':
             player_info = st.session_state.selected_player_data
             st.success(f"Geselecteerde speler: **{player_info['name']}** van {player_info['club']}")
+            
+            # Set variables for prediction
+            player_name = player_info['name']
+            club_code = None  # Database search doesn't need club_code for API
+            season = player_info['season']
+        else:
+            st.error("Kan speler database niet laden")
+    
     else:
-        st.error("Kan speler database niet laden")
+        # Original club & season selection method
+        st.subheader("🏓 Club & Seizoen Selectie")
+        
+        # Fixed to Antwerpen province only
+        selected_province = 'Antwerpen'
+        st.info("Provincie: Antwerpen")
+
+        # Create columns for better mobile layout
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            # Club selection based on province
+            clubs_in_province = get_clubs_for_province(selected_province)
+            club_names = [f"{code} - {get_club_name_for_club(code)}" for code in clubs_in_province]
+            selected_club_display = st.selectbox("Selecteer Club", club_names)
+            club_code = selected_club_display.split(' - ')[0] if selected_club_display else ""
+        
+        with col2:
+            # Season selection
+            season = st.number_input("Seizoen", min_value=15, max_value=26, value=26)
+
+        # Initialize session state for selected player
+        if 'selected_player' not in st.session_state:
+            st.session_state.selected_player = None
+        if 'previous_season' not in st.session_state:
+            st.session_state.previous_season = season
+        if 'auto_predict' not in st.session_state:
+            st.session_state.auto_predict = False
+
+        # Member selection based on club and season
+        if club_code and season:
+            members = get_members_for_club_season(club_code, season)
+            if members:
+                # Check if season changed
+                season_changed = st.session_state.previous_season != season
+                
+                # Try to keep the same player if season changed
+                if season_changed and st.session_state.selected_player:
+                    if st.session_state.selected_player in members:
+                        # Player exists in new season - keep them selected and auto-predict
+                        default_index = members.index(st.session_state.selected_player)
+                        st.session_state.auto_predict = True
+                    else:
+                        # Player doesn't exist - reset to first player, don't auto-predict
+                        default_index = 0
+                        st.session_state.auto_predict = False
+                        st.session_state.selected_player = members[0]
+                else:
+                    # No season change or no previous player
+                    default_index = members.index(st.session_state.selected_player) if st.session_state.selected_player in members else 0
+                
+                player_name = st.selectbox("Selecteer Speler", members, index=default_index)
+                st.session_state.selected_player = player_name
+                st.session_state.previous_season = season
+            else:
+                player_name = st.text_input("Speler Naam (manuele invoer)", value="")
+                st.warning("Kon leden niet automatisch laden. Voer naam manueel in.")
+        else:
+            player_name = st.text_input("Speler Naam", value="")
     
     # Predict button
     st.markdown("---")
     predict_button = st.button("Voorspel Klassement", type="primary", use_container_width=True)
+    
+    # Auto-predict if season changed and player exists (only for club method)
+    if search_method == "Club & Seizoen" and 'auto_predict' in st.session_state and st.session_state.auto_predict:
+        predict_button = True
+        st.session_state.auto_predict = False
     
     # Main content area
     if not predict_button:
@@ -728,30 +816,46 @@ def main():
             st.markdown("De AI zal het toekomstige klassement voorspellen op basis van de huidige kaart.")
     
     if predict_button:
-        # Check if a player is selected
-        if 'selected_player_data' not in st.session_state:
-            st.error("❌ Selecteer eerst een speler uit de zoekresultaten")
+        # Check what method is being used and if data is available
+        if search_method == "Database Zoeken":
+            if 'selected_player_data' not in st.session_state or st.session_state.selected_player_data.get('search_method') != 'database':
+                st.error("❌ Selecteer eerst een speler uit de database zoekresultaten")
+            else:
+                with st.spinner("Making prediction from database data..."):
+                    try:
+                        # Get player data from selected search result
+                        player_info = st.session_state.selected_player_data
+                        row = player_info['row_data']
+                        
+                        # Convert CSV data to the format expected by the prediction model
+                        import ast
+                        kaart_data = ast.literal_eval(row['kaart'])
+                        
+                        player_data = {
+                            'name': row['name'],
+                            'category': str(row['category']).strip("[]'"),
+                            'ranking': str(row['current_ranking']).strip("[]'"),
+                            'current_ranking': str(row['current_ranking']).strip("[]'"),
+                            'kaart': kaart_data,
+                            'elo': 0  # Default ELO if not available
+                        }
+                        
+                        st.success(f"✅ Using database data for {player_data['name']}")
         else:
-            with st.spinner("Making prediction from database data..."):
-                try:
-                    # Get player data from selected search result
-                    player_info = st.session_state.selected_player_data
-                    row = player_info['row_data']
-                    
-                    # Convert CSV data to the format expected by the prediction model
-                    import ast
-                    kaart_data = ast.literal_eval(row['kaart'])
-                    
-                    player_data = {
-                        'name': row['name'],
-                        'category': str(row['category']).strip("[]'"),
-                        'ranking': str(row['current_ranking']).strip("[]'"),
-                        'current_ranking': str(row['current_ranking']).strip("[]'"),
-                        'kaart': kaart_data,
-                        'elo': 0  # Default ELO if not available
-                    }
-                    
-                    st.success(f"✅ Using database data for {player_data['name']}")
+            # Club & Season method
+            if not player_name or not club_code:
+                st.error("❌ Selecteer eerst een club en speler")
+            else:
+                with st.spinner("Fetching player data from API..."):
+                    try:
+                        player_data = get_data(club=club_code, name=player_name, season=season)
+                        if player_data:
+                            st.success(f"✅ Using API data for {player_name}")
+                        else:
+                            st.error("❌ Kon speler data niet ophalen van API")
+                            player_data = None
+        
+        if 'player_data' in locals() and player_data:
                     # Get basic info for model selection
                     category = player_data.get('category')
                     current_rank = player_data.get('ranking') or player_data.get('current_ranking')
