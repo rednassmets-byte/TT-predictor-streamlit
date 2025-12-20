@@ -946,15 +946,7 @@ def main():
         </style>
     """, unsafe_allow_html=True)
 
-    # Display centered logo at the top
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
-        try:
-            st.image("TT_predictor__2_-removebg-preview.png", use_container_width=True)
-        except Exception as e:
-            st.title("TT PREDICTOR")
-    
-    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    st.title("TT Klassement Predictor")
 
     # Load models and encoders (ORIGINAL SETUP - BEST PERFORMANCE)
     regular_model, regular_category_encoder, regular_feature_cols, regular_int_to_rank, regular_rank_to_int, regular_ranking_order, regular_scaler = load_regular_model_and_encoders()
