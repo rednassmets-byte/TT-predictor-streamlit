@@ -862,35 +862,36 @@ def main():
                         player_data = None
         
         if 'player_data' in locals() and player_data:
-                    # Get basic info for model selection
-                    category = player_data.get('category')
-                    current_rank = player_data.get('ranking') or player_data.get('current_ranking')
-                    
-                    # Model selection logic:
-                    # 1. BEN/PRE/MIN/CAD categories with rank C6 or lower (worse) -> use filtered model
-                    # 2. BEN/PRE/MIN/CAD categories with rank above C6 (better) -> use regular model
-                    # 3. All other categories -> use regular model
-                    
-                    # Define rank order (lower index = better rank)
-                    rank_order = ['A', 'B0', 'B2', 'B4', 'B6', 'C0', 'C2', 'C4', 'C6', 
-                                  'D0', 'D2', 'D4', 'D6', 'E0', 'E2', 'E4', 'E6', 'NG']
-                    
-                    use_filtered = False
-                    if category in ["BEN", "PRE", "MIN", "CAD"]:
-                        # Check if rank is C6 or lower (worse)
-                        try:
-                            current_rank_idx = rank_order.index(current_rank)
-                            c6_idx = rank_order.index('C6')
-                            # Use filtered model only if rank is C6 or worse (higher index)
-                            if current_rank_idx >= c6_idx:
-                                use_filtered = True
-                            else:
-                                # For youth at high ranks (above C6), still use filtered model
-                                # but we'll disable the aggressive boost
-                                use_filtered = True
-                        except (ValueError, AttributeError):
-                            # If rank not found, default to filtered for youth
+            try:
+                # Get basic info for model selection
+                category = player_data.get('category')
+                current_rank = player_data.get('ranking') or player_data.get('current_ranking')
+                
+                # Model selection logic:
+                # 1. BEN/PRE/MIN/CAD categories with rank C6 or lower (worse) -> use filtered model
+                # 2. BEN/PRE/MIN/CAD categories with rank above C6 (better) -> use regular model
+                # 3. All other categories -> use regular model
+                
+                # Define rank order (lower index = better rank)
+                rank_order = ['A', 'B0', 'B2', 'B4', 'B6', 'C0', 'C2', 'C4', 'C6', 
+                              'D0', 'D2', 'D4', 'D6', 'E0', 'E2', 'E4', 'E6', 'NG']
+                
+                use_filtered = False
+                if category in ["BEN", "PRE", "MIN", "CAD"]:
+                    # Check if rank is C6 or lower (worse)
+                    try:
+                        current_rank_idx = rank_order.index(current_rank)
+                        c6_idx = rank_order.index('C6')
+                        # Use filtered model only if rank is C6 or worse (higher index)
+                        if current_rank_idx >= c6_idx:
                             use_filtered = True
+                        else:
+                            # For youth at high ranks (above C6), still use filtered model
+                            # but we'll disable the aggressive boost
+                            use_filtered = True
+                    except (ValueError, AttributeError):
+                        # If rank not found, default to filtered for youth
+                        use_filtered = True
                     
                     if use_filtered:
                         # Use filtered model for youth categories
@@ -1123,10 +1124,10 @@ def main():
                     st.caption("Machine learning op data van Antwerpen seizoen 15-26")
                     st.caption("Gemaakt door Smets Sander | Credits: Smets Steven, Tim Jacobs, vttl api")
                     
-                except Exception as e:
-                    st.error(f"Error making prediction: {e}")
-                    import traceback
-                    st.error(traceback.format_exc())
+            except Exception as e:
+                st.error(f"Error making prediction: {e}")
+                import traceback
+                st.error(traceback.format_exc())
 
 if __name__ == "__main__":
     main()
