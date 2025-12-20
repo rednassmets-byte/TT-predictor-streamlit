@@ -552,22 +552,22 @@ def main():
         df_players = load_player_database()
         
         if df_players is not None:
-        # Search interface
-        col1, col2 = st.columns([3, 1])
-        
-        with col1:
-            search_query = st.text_input(
-                "Zoek speler:", 
-                placeholder="Type naam, club, of ranking...",
-                help="Zoek op naam, club naam, of huidige ranking"
-            )
-        
-        with col2:
-            # Get available seasons from data
-            available_seasons = sorted(df_players['season'].unique(), reverse=True)
-            season_options = []
-            for s in available_seasons:
-                # Convert "2025-2026" to 26
+            # Search interface
+            col1, col2 = st.columns([3, 1])
+            
+            with col1:
+                search_query = st.text_input(
+                    "Zoek speler:", 
+                    placeholder="Type naam, club, of ranking...",
+                    help="Zoek op naam, club naam, of huidige ranking"
+                )
+            
+            with col2:
+                # Get available seasons from data
+                available_seasons = sorted(df_players['season'].unique(), reverse=True)
+                season_options = []
+                for s in available_seasons:
+                    # Convert "2025-2026" to 26
                 try:
                     year = int(s.split('-')[1])
                     season_options.append(year)
@@ -578,161 +578,161 @@ def main():
                 season = st.selectbox("Seizoen", season_options, index=0)
             else:
                 season = 26
-        
-        # Show suggestions as you type (Google-like)
-        if search_query and len(search_query) >= 2:  # Start suggesting after 2 characters
-            # Convert search query to lowercase for case-insensitive search
-            query_lower = search_query.lower()
             
-            # Filter by season first
-            season_str = f"{season-1}-{season}"
-            df_filtered = df_players[df_players['season'] == season_str].copy()
-            
-            if not df_filtered.empty:
-                # Search in multiple columns
-                mask = (
-                    df_filtered['name'].str.lower().str.contains(query_lower, na=False) |
-                    df_filtered['club_name'].str.lower().str.contains(query_lower, na=False) |
-                    df_filtered['current_ranking'].str.lower().str.contains(query_lower, na=False) |
-                    df_filtered['category'].str.lower().str.contains(query_lower, na=False)
-                )
+            # Show suggestions as you type (Google-like)
+            if search_query and len(search_query) >= 2:  # Start suggesting after 2 characters
+                # Convert search query to lowercase for case-insensitive search
+                query_lower = search_query.lower()
                 
-                search_results = df_filtered[mask]
+                # Filter by season first
+                season_str = f"{season-1}-{season}"
+                df_filtered = df_players[df_players['season'] == season_str].copy()
                 
-                if not search_results.empty:
-                    # Google-like suggestions container
-                    with st.container():
-                        st.markdown("""
-                            <style>
-                            .suggestion-container {
-                                background: white;
-                                border: 1px solid #ddd;
-                                border-radius: 8px;
-                                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-                                margin-top: -10px;
-                                padding: 8px;
-                            }
-                            </style>
-                        """, unsafe_allow_html=True)
-                        
-                        st.markdown(f"<div class='suggestion-container'>", unsafe_allow_html=True)
-                        st.markdown(f"**{len(search_results)} resultaten gevonden:**")
-                        
-                        # Show top 10 suggestions
-                        for idx, row in search_results.head(10).iterrows():
-                            # Clean up the data display
-                            name = row['name']
-                            club = row['club_name']
-                            ranking = str(row['current_ranking']).strip("[]'")
-                            category = str(row['category']).strip("[]'")
-                            
-                            # Highlight matching text
-                            name_display = name
-                            club_display = club
-                            
-                            # Simple highlighting (case insensitive)
-                            if query_lower in name.lower():
-                                name_display = name.replace(
-                                    query_lower, f"**{query_lower}**"
-                                ).replace(
-                                    query_lower.upper(), f"**{query_lower.upper()}**"
-                                ).replace(
-                                    query_lower.capitalize(), f"**{query_lower.capitalize()}**"
-                                )
-                            
-                            if query_lower in club.lower():
-                                club_display = club.replace(
-                                    query_lower, f"**{query_lower}**"
-                                ).replace(
-                                    query_lower.upper(), f"**{query_lower.upper()}**"
-                                ).replace(
-                                    query_lower.capitalize(), f"**{query_lower.capitalize()}**"
-                                )
-                            
-                            # Create clickable suggestion
-                            if st.button(
-                                f"🏓 {name_display}",
-                                key=f"suggestion_{idx}",
-                                help=f"{club_display} | {ranking} ({category})",
-                                use_container_width=True
-                            ):
-                                # Set the selected player data
-                                st.session_state.selected_player_data = {
-                                    'name': name,
-                                    'club': club,
-                                    'season': season,
-                                    'ranking': ranking,
-                                    'category': category,
-                                    'row_data': row,
-                                    'search_method': 'database'
-                                }
-                                st.success(f"✅ Geselecteerd: {name}")
-                                st.rerun()
-                            
-                            # Show metadata below button
-                            st.markdown(f"<small>📍 {club_display} | 🏆 {ranking} | 👤 {category}</small>", unsafe_allow_html=True)
-                            st.markdown("---")
-                        
-                        if len(search_results) > 10:
-                            st.info(f"... en nog {len(search_results) - 10} andere resultaten")
-                        
-                        st.markdown("</div>", unsafe_allow_html=True)
-                else:
-                    st.warning("🔍 Geen spelers gevonden met deze zoekopdracht")
+                if not df_filtered.empty:
+                    # Search in multiple columns
+                    mask = (
+                        df_filtered['name'].str.lower().str.contains(query_lower, na=False) |
+                        df_filtered['club_name'].str.lower().str.contains(query_lower, na=False) |
+                        df_filtered['current_ranking'].str.lower().str.contains(query_lower, na=False) |
+                        df_filtered['category'].str.lower().str.contains(query_lower, na=False)
+                    )
                     
-                    # Show some suggestions
-                    st.info("💡 **Zoektips:**")
-                    st.markdown("- Probeer een deel van de naam: `Sander`, `Van Den`")
-                    st.markdown("- Zoek op club: `Nodo`, `Sparta`")
-                    st.markdown("- Zoek op ranking: `B0`, `C4`, `NG`")
-                    st.markdown("- Zoek op categorie: `SEN`, `JUN`, `V40`")
+                    search_results = df_filtered[mask]
+                    
+                    if not search_results.empty:
+                        # Google-like suggestions container
+                        with st.container():
+                            st.markdown("""
+                                <style>
+                                .suggestion-container {
+                                    background: white;
+                                    border: 1px solid #ddd;
+                                    border-radius: 8px;
+                                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                                    margin-top: -10px;
+                                    padding: 8px;
+                                }
+                                </style>
+                            """, unsafe_allow_html=True)
+                            
+                            st.markdown(f"<div class='suggestion-container'>", unsafe_allow_html=True)
+                            st.markdown(f"**{len(search_results)} resultaten gevonden:**")
+                            
+                            # Show top 10 suggestions
+                            for idx, row in search_results.head(10).iterrows():
+                                # Clean up the data display
+                                name = row['name']
+                                club = row['club_name']
+                                ranking = str(row['current_ranking']).strip("[]'")
+                                category = str(row['category']).strip("[]'")
+                                
+                                # Highlight matching text
+                                name_display = name
+                                club_display = club
+                                
+                                # Simple highlighting (case insensitive)
+                                if query_lower in name.lower():
+                                    name_display = name.replace(
+                                        query_lower, f"**{query_lower}**"
+                                    ).replace(
+                                        query_lower.upper(), f"**{query_lower.upper()}**"
+                                    ).replace(
+                                        query_lower.capitalize(), f"**{query_lower.capitalize()}**"
+                                    )
+                                
+                                if query_lower in club.lower():
+                                    club_display = club.replace(
+                                        query_lower, f"**{query_lower}**"
+                                    ).replace(
+                                        query_lower.upper(), f"**{query_lower.upper()}**"
+                                    ).replace(
+                                        query_lower.capitalize(), f"**{query_lower.capitalize()}**"
+                                    )
+                                
+                                # Create clickable suggestion
+                                if st.button(
+                                    f"🏓 {name_display}",
+                                    key=f"suggestion_{idx}",
+                                    help=f"{club_display} | {ranking} ({category})",
+                                    use_container_width=True
+                                ):
+                                    # Set the selected player data
+                                    st.session_state.selected_player_data = {
+                                        'name': name,
+                                        'club': club,
+                                        'season': season,
+                                        'ranking': ranking,
+                                        'category': category,
+                                        'row_data': row,
+                                        'search_method': 'database'
+                                    }
+                                    st.success(f"✅ Geselecteerd: {name}")
+                                    st.rerun()
+                                
+                                # Show metadata below button
+                                st.markdown(f"<small>📍 {club_display} | 🏆 {ranking} | 👤 {category}</small>", unsafe_allow_html=True)
+                                st.markdown("---")
+                            
+                            if len(search_results) > 10:
+                                st.info(f"... en nog {len(search_results) - 10} andere resultaten")
+                            
+                            st.markdown("</div>", unsafe_allow_html=True)
+                    else:
+                        st.warning("🔍 Geen spelers gevonden met deze zoekopdracht")
+                        
+                        # Show some suggestions
+                        st.info("💡 **Zoektips:**")
+                        st.markdown("- Probeer een deel van de naam: `Sander`, `Van Den`")
+                        st.markdown("- Zoek op club: `Nodo`, `Sparta`")
+                        st.markdown("- Zoek op ranking: `B0`, `C4`, `NG`")
+                        st.markdown("- Zoek op categorie: `SEN`, `JUN`, `V40`")
+                else:
+                    st.warning(f"❌ Geen data beschikbaar voor seizoen {season_str}")
+            elif search_query and len(search_query) < 2:
+                st.info("💭 Type minstens 2 karakters om te zoeken...")
             else:
-                st.warning(f"❌ Geen data beschikbaar voor seizoen {season_str}")
-        elif search_query and len(search_query) < 2:
-            st.info("💭 Type minstens 2 karakters om te zoeken...")
-        else:
-            # Show some popular examples when no search
-            st.info("🔍 **Populaire zoekopdrachten:**")
-            
-            # Get some sample data to show
-            season_str = f"{season-1}-{season}"
-            df_sample = df_players[df_players['season'] == season_str].head(5)
-            
-            if not df_sample.empty:
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.markdown("**Voorbeelden:**")
-                    for _, row in df_sample.iterrows():
-                        name = row['name'].split()[0]  # First name only
-                        if st.button(f"🔍 {name}", key=f"example_{name}", use_container_width=True):
-                            st.session_state.example_search = name
-                            st.rerun()
+                # Show some popular examples when no search
+                st.info("🔍 **Populaire zoekopdrachten:**")
                 
-                with col_b:
-                    st.markdown("**Zoek op:**")
-                    st.markdown("• `B0` - alle B0 spelers")
-                    st.markdown("• `Nodo` - alle TTC Nodo leden")
-                    st.markdown("• `SEN` - alle senioren")
-                    st.markdown("• `JUN` - alle junioren")
+                # Get some sample data to show
+                season_str = f"{season-1}-{season}"
+                df_sample = df_players[df_players['season'] == season_str].head(5)
+                
+                if not df_sample.empty:
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        st.markdown("**Voorbeelden:**")
+                        for _, row in df_sample.iterrows():
+                            name = row['name'].split()[0]  # First name only
+                            if st.button(f"🔍 {name}", key=f"example_{name}", use_container_width=True):
+                                st.session_state.example_search = name
+                                st.rerun()
+                    
+                    with col_b:
+                        st.markdown("**Zoek op:**")
+                        st.markdown("• `B0` - alle B0 spelers")
+                        st.markdown("• `Nodo` - alle TTC Nodo leden")
+                        st.markdown("• `SEN` - alle senioren")
+                        st.markdown("• `JUN` - alle junioren")
+                
+                # Handle example search
+                if 'example_search' in st.session_state:
+                    st.text_input(
+                        "Zoek speler:", 
+                        value=st.session_state.example_search,
+                        key="example_input"
+                    )
+                    del st.session_state.example_search
             
-            # Handle example search
-            if 'example_search' in st.session_state:
-                st.text_input(
-                    "Zoek speler:", 
-                    value=st.session_state.example_search,
-                    key="example_input"
-                )
-                del st.session_state.example_search
-        
-        # Show selected player if any
-        if 'selected_player_data' in st.session_state and st.session_state.selected_player_data.get('search_method') == 'database':
-            player_info = st.session_state.selected_player_data
-            st.success(f"Geselecteerde speler: **{player_info['name']}** van {player_info['club']}")
-            
-            # Set variables for prediction
-            player_name = player_info['name']
-            club_code = None  # Database search doesn't need club_code for API
-            season = player_info['season']
+            # Show selected player if any
+            if 'selected_player_data' in st.session_state and st.session_state.selected_player_data.get('search_method') == 'database':
+                player_info = st.session_state.selected_player_data
+                st.success(f"Geselecteerde speler: **{player_info['name']}** van {player_info['club']}")
+                
+                # Set variables for prediction
+                player_name = player_info['name']
+                club_code = None  # Database search doesn't need club_code for API
+                season = player_info['season']
         else:
             st.error("Kan speler database niet laden")
     
