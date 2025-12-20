@@ -871,7 +871,7 @@ def main():
                     st.markdown("---")
                     
                     # ========== PLAYER INFORMATION SECTION ==========
-                    st.markdown(f"# {player_name}")
+                    st.markdown(f"# {player_data['name']}")
                     
                     info_col1, info_col2, info_col3 = st.columns(3)
                     
@@ -880,12 +880,12 @@ def main():
                         st.metric("Categorie", player_data.get('category', 'Unknown'))
                     
                     with info_col2:
-                        st.metric("Club", player_data.get('club_name', 'Unknown'))
-                        st.metric("Provincie", player_data.get('province', 'Unknown'))
+                        st.metric("Club", player_info.get('club', 'Unknown'))
+                        st.metric("Provincie", 'Antwerpen')
                     
                     with info_col3:
-                        st.metric("Seizoen", player_data.get('season', 'Unknown'))
-                        st.metric("Unique Index", player_data.get('unique_index', 'Unknown'))
+                        st.metric("Seizoen", f"{player_info.get('season', 'Unknown')}")
+                        st.metric("Unique Index", str(row.get('unique_index', 'Unknown')))
                     
                     st.markdown("---")
                     
@@ -933,11 +933,13 @@ def main():
 
                     # Display rank progression chart with prediction
                     st.subheader("Rank Progression")
-                    progression_fig = create_rank_progression_chart(club_code, player_name, season, rank_to_int, predicted_rank)
-                    if progression_fig:
-                        st.plotly_chart(progression_fig, use_container_width=True)
-                    else:
-                        st.info("Niet genoeg historische data om progressie te tonen (minimaal 2 seizoenen nodig)")
+                    # Note: Rank progression requires API data, not available with database search
+                    st.info("Rank progression chart niet beschikbaar voor database zoeken (vereist API data)")
+                    # progression_fig = create_rank_progression_chart(club_code, player_name, season, rank_to_int, predicted_rank)
+                    # if progression_fig:
+                    #     st.plotly_chart(progression_fig, use_container_width=True)
+                    # else:
+                    #     st.info("Niet genoeg historische data om progressie te tonen (minimaal 2 seizoenen nodig)")
                     
                     # Calculate performance score (1-100)
                     st.subheader("Performance Score")
@@ -1015,9 +1017,6 @@ def main():
                     st.error(f"Error making prediction: {e}")
                     import traceback
                     st.error(traceback.format_exc())
-                    
-            except Exception as e:
-                st.error(f"Error: {e}")
 
 if __name__ == "__main__":
     main()
