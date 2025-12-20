@@ -816,6 +816,8 @@ def main():
             st.markdown("De AI zal het toekomstige klassement voorspellen op basis van de huidige kaart.")
     
     if predict_button:
+        player_data = None  # Initialize player_data
+        
         # Check what method is being used and if data is available
         if search_method == "Database Zoeken":
             if 'selected_player_data' not in st.session_state or st.session_state.selected_player_data.get('search_method') != 'database':
@@ -861,7 +863,7 @@ def main():
                         st.error(f"❌ Error fetching API data: {e}")
                         player_data = None
         
-        if 'player_data' in locals() and player_data:
+        if player_data:
             try:
                 # Get basic info for model selection
                 category = player_data.get('category')
