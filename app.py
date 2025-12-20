@@ -718,11 +718,6 @@ def main():
     st.markdown("---")
     predict_button = st.button("Voorspel Klassement", type="primary", use_container_width=True)
     
-    # Auto-predict if season changed and player exists
-    if st.session_state.auto_predict:
-        predict_button = True
-        st.session_state.auto_predict = False
-    
     # Main content area
     if not predict_button:
         # Empty state
@@ -1016,8 +1011,10 @@ def main():
                     st.caption("Machine learning op data van Antwerpen seizoen 15-26")
                     st.caption("Gemaakt door Smets Sander | Credits: Smets Steven, Tim Jacobs, vttl api")
                     
-                else:
-                    st.error("Could not fetch player data. Please check the club code and player name.")
+                except Exception as e:
+                    st.error(f"Error making prediction: {e}")
+                    import traceback
+                    st.error(traceback.format_exc())
                     
             except Exception as e:
                 st.error(f"Error: {e}")
