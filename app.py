@@ -935,19 +935,19 @@ def main():
                     special_model=special_model, special_feature_cols=special_feature_cols,
                     is_filtered_model=apply_boost
                 )
+                
+                predicted_rank = None
+                if result:
+                    predicted_rank, confidence, was_boosted = result
                     
-                    predicted_rank = None
-                    if result:
-                        predicted_rank, confidence, was_boosted = result
-                        
-                        # Get comparison indicators
-                        emoji, arrow, color_type, message = get_rank_comparison(current_rank, predicted_rank, rank_to_int)
-                        
-                        # Display prediction - ALLEEN VOORSPELD KLASSEMENT
-                        st.markdown("### Voorspeld Klassement")
-                        st.markdown(f"""
-                            <div style="
-                                background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
+                    # Get comparison indicators
+                    emoji, arrow, color_type, message = get_rank_comparison(current_rank, predicted_rank, rank_to_int)
+                    
+                    # Display prediction - ALLEEN VOORSPELD KLASSEMENT
+                    st.markdown("### Voorspeld Klassement")
+                    st.markdown(f"""
+                        <div style="
+                            background: linear-gradient(135deg, #f0f0f0 0%, #e0e0e0 100%);
                                 padding: 30px;
                                 border-radius: 15px;
                                 text-align: center;
