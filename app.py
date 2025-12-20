@@ -894,47 +894,47 @@ def main():
                     except (ValueError, AttributeError):
                         # If rank not found, default to filtered for youth
                         use_filtered = True
+                
+                if use_filtered:
+                    # Use filtered model for youth categories
+                    model = filtered_model
+                    category_encoder = filtered_category_encoder
+                    feature_cols = filtered_feature_cols
+                    rank_to_int = filtered_rank_to_int
+                    int_to_rank = filtered_int_to_rank
+                    ranking_order = filtered_ranking_order
+                    scaler = filtered_scaler
                     
-                    if use_filtered:
-                        # Use filtered model for youth categories
-                        model = filtered_model
-                        category_encoder = filtered_category_encoder
-                        feature_cols = filtered_feature_cols
-                        rank_to_int = filtered_rank_to_int
-                        int_to_rank = filtered_int_to_rank
-                        ranking_order = filtered_ranking_order
-                        scaler = filtered_scaler
-                        
-                        # Check if rank is above C6 (better rank)
-                        try:
-                            current_rank_idx = rank_order.index(current_rank)
-                            c6_idx = rank_order.index('C6')
-                            if current_rank_idx < c6_idx:
-                                model_type = "Filtered (youth high rank - no boost)"
-                            else:
-                                model_type = "Filtered (youth C6+)"
-                        except (ValueError, AttributeError):
-                            model_type = "Filtered (youth)"
-                    else:
-                        # Use regular model for all other cases
-                        model = regular_model
-                        category_encoder = regular_category_encoder
-                        feature_cols = regular_feature_cols
-                        rank_to_int = regular_rank_to_int
-                        int_to_rank = regular_int_to_rank
-                        ranking_order = regular_ranking_order
-                        scaler = regular_scaler
-                        model_type = "Regular"
+                    # Check if rank is above C6 (better rank)
+                    try:
+                        current_rank_idx = rank_order.index(current_rank)
+                        c6_idx = rank_order.index('C6')
+                        if current_rank_idx < c6_idx:
+                            model_type = "Filtered (youth high rank - no boost)"
+                        else:
+                            model_type = "Filtered (youth C6+)"
+                    except (ValueError, AttributeError):
+                        model_type = "Filtered (youth)"
+                else:
+                    # Use regular model for all other cases
+                    model = regular_model
+                    category_encoder = regular_category_encoder
+                    feature_cols = regular_feature_cols
+                    rank_to_int = regular_rank_to_int
+                    int_to_rank = regular_int_to_rank
+                    ranking_order = regular_ranking_order
+                    scaler = regular_scaler
+                    model_type = "Regular"
 
-                    # ========== PREDICTION SECTION (AT THE TOP) ==========
-                    # Make prediction
-                    apply_boost = "Filtered (youth C6+)" in model_type
-                    result = predict_next_rank(
-                        player_data, model, feature_cols, category_encoder, 
-                        rank_to_int, int_to_rank, ranking_order, scaler,
-                        special_model=special_model, special_feature_cols=special_feature_cols,
-                        is_filtered_model=apply_boost
-                    )
+                # ========== PREDICTION SECTION (AT THE TOP) ==========
+                # Make prediction
+                apply_boost = "Filtered (youth C6+)" in model_type
+                result = predict_next_rank(
+                    player_data, model, feature_cols, category_encoder, 
+                    rank_to_int, int_to_rank, ranking_order, scaler,
+                    special_model=special_model, special_feature_cols=special_feature_cols,
+                    is_filtered_model=apply_boost
+                )
                     
                     predicted_rank = None
                     if result:
