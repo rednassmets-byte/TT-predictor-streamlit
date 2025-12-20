@@ -17,11 +17,8 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 try:
     from prediction_engine import predict_next_rank, get_rank_comparison
     USING_PREDICTION_ENGINE = True
-    st.success("✅ Using prediction_engine.py for predictions")
-except ImportError as e:
+except ImportError:
     USING_PREDICTION_ENGINE = False
-    st.error(f"❌ Failed to import prediction_engine.py: {e}")
-    st.warning("🔄 Using fallback prediction functions")
 
 try:
     from database_maker import get_data, get_province_for_club, get_club_name_for_club, get_information
@@ -507,25 +504,6 @@ def main():
     """, unsafe_allow_html=True)
 
     st.title("TT Klassement Predictor")
-
-    # Debug information about prediction engine
-    with st.expander("🔧 Debug Information", expanded=False):
-        if USING_PREDICTION_ENGINE:
-            st.success("✅ **Prediction Engine Status**: Using prediction_engine.py module")
-            st.info("🚀 **Performance**: Full prediction logic with all features enabled")
-        else:
-            st.error("❌ **Prediction Engine Status**: Using fallback functions")
-            st.warning("⚠️ **Performance**: Limited prediction functionality")
-        
-        st.write(f"**Python Path**: {sys.path[0]}")
-        st.write(f"**Working Directory**: {os.getcwd()}")
-        
-        # Check if prediction_engine.py exists
-        prediction_file_exists = os.path.exists("prediction_engine.py")
-        if prediction_file_exists:
-            st.success("✅ **File Check**: prediction_engine.py found in directory")
-        else:
-            st.error("❌ **File Check**: prediction_engine.py not found in directory")
 
     # Load models and encoders (ORIGINAL SETUP - BEST PERFORMANCE)
     regular_model, regular_category_encoder, regular_feature_cols, regular_int_to_rank, regular_rank_to_int, regular_ranking_order, regular_scaler = load_regular_model_and_encoders()
