@@ -1,0 +1,3 @@
+smartschool
+python-dotenv
+streamlit
